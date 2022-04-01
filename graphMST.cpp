@@ -262,6 +262,202 @@ bool isCyclic(std::vector<edge> graph[], std::vector<edge> mst[], int numVertice
 //*************** END GRAPH CHECK METHODS (CONNECTED & CYCLIC) ***************
 
 
+//*************** BEGIN BORUVKAS ALGORITHM METHODS ***************
+int find(int parents[], int vert, int counts)
+{
+    if(parents[vert] == vert)
+        return vert;
+    return find(parents, parents[vert], counts);
+}
+
+void joinComps(int parents[], int rank[], int startOne, int startTwo)
+{
+    int counts = 0;
+    int rootOne = find(parents, startOne, counts);
+    int rootTwo = find(parents, startTwo, counts);
+
+    //attach smaller ranked tree under root of higher ranked one
+    if(rank[rootOne] < rank[rootTwo])
+        parents[rootOne] = rootTwo;
+    else if(rank[rootOne] > rank[rootTwo])
+        parents[rootTwo] = rootOne;
+    //if ranks are the same, just make root one the main root and increment its rank
+    else
+    {
+        parents[rootTwo] = rootOne;
+        rank[rootOne]++;
+    }
+}
+    
+void minSpanningTree(std::vector<edge> graph[], std::vector<edge> result[], int root, int numVertices, int numEdges, bool notConnected[], int cores)
+{
+    //number of trees initially is just the number of vertices
+    int numTrees = numVertices-1;
+    //remove any vertices not connected
+    for(int i = 1; i < numVertices; i++)
+    {
+        if(notConnected[i])
+            numTrees--;
+    }
+    
+    //array of vector of edges representing each tree
+    std::vector<edge> *trees = new std::vector<edge>[numVertices];
+    //array of each parent vertex (index holds parent value)
+    int *parents = new int[numVertices]();
+    //rank array to hold bigger values for bigger roots
+    int *rank = new int[numVertices]();
+    //vector to store smallest edge of each tree, reinitialize on every loop
+    std::vector<edge> *edges = new std::vector<edge>[numVertices];
+    
+    //vars to hold vertex numbers
+    int rootOne, rootTwo;
+    
+    //initialize parent array
+    for(int i = 1; i < numVertices; i++)
+    {
+        parents[i] = i;
+        rank[i] = 0;
+    }
+    
+    //std::cout << "Number of trees to begin: " << numTrees << "\n"; 
+    
+    //debug var
+    int edgeCount = 0;
+    
+    //while there are more than 1 tree (assuming entire graph is connected to begin), keep going
+    while(numTrees > 1)
+    {
+        //clear all edges
+        for(int i = 1; i < numVertices; i++)
+            edges[i].clear();
+        
+        //loop through all edges and update the cheapest one for each component
+		#pragma omp parallel for private( rootOne, rootTwo ) num_threads( cores )
+        for(int i = 1; i < numVertices; i++)
+        {
+			
+            //if the current vertex is not connected to the main graph, jump to next iteration
+            if(notConnected[i])
+                continue;
+            //std::cout << "Looking through edges for vertex: " << i << "\n";
+            for(auto curr : graph[i])
+            {
+				
+                //std::cout << "Current edge " << i << " --" << curr.weight << "-- " << curr.destination << "\n";
+                rootOne = i; //rootOne = edge "start"
+                rootTwo = curr.destination; //rootTwo = edge "end"
+                
+                int count = 0;
+                //find components/sets for every edge
+                int setOne = find(parents, rootOne, count);
+                int setTwo = find(parents, rootTwo, count);
+                
+                //if the two vertices found are part of the same component, ignore
+                if(setOne != setTwo)
+                {
+					if(edges[setOne].empty() || (edges[setOne].front().weight > curr.weight))
+					{
+						/*
+						if(!edges[setOne].empty())
+						{
+							std::cout << "S1 Edge " << rootOne << " --" << curr.weight << "-- " << rootTwo << " is less than \n";
+							std::cout << "        " << edges[setOne].front().start << " --" << edges[setOne].front().weight << "-- " << edges[setOne].front().destination << "\n";
+						}
+						*/
+						#pragma omp critical( setone )
+						{
+							edges[setOne].clear();
+							edges[setOne].push_back({rootOne, rootTwo, curr.weight});
+						}
+						//maybe push back for edges[setTwo] as well?
+						/*
+						for(auto test : edges[i])
+						{
+							std::cout << "S1 Cheapest edge for vertex " << setOne << " is " << setOne << " --" << test.weight << "-- " << test.destination << "\n";
+						}
+						*/
+					}
+					if(edges[setTwo].empty() || (edges[setTwo].front().weight > curr.weight))
+					{
+						/*
+						if(!edges[setTwo].empty())
+						{
+							std::cout << "S2 Edge " << rootOne << " --" << curr.weight << "-- " << rootTwo << " is less than \n";
+							std::cout << "        " << edges[setTwo].front().start << " --" << edges[setTwo].front().weight << "-- " << edges[setTwo].front().destination << "\n";
+						}
+						*/
+						#pragma omp critical( settwo )
+						{
+							edges[setTwo].clear();
+							edges[setTwo].push_back({rootOne, rootTwo, curr.weight});
+						}
+						//maybe push back for edges[setOne] as well?
+						/*
+						for(auto test : edges[i])
+						{
+							std::cout << "S2 Cheapest edge for vertex " << setTwo << " is " << setTwo << " --" << test.weight << "-- " << test.destination << "\n";
+						}
+						*/
+					}
+                }
+            }
+        }
+        
+        /*
+        //debug - print out cheapest edges
+        for(int i = 1; i < numVertices; i++)
+        {
+            for(auto curr : edges[i])
+            {
+                std::cout << "Cheapest edge for tree rooted at " << i << " is " << curr.start << " --" << curr.weight << "-- " << curr.destination << "\n";
+            }
+        }
+        */
+        
+        //add the cheapest edges to the MST
+        for(int i = 1; i < numVertices; i++)
+        {
+            //check if there is a cheapest edge for the current set
+            if(!edges[i].empty())
+            {
+                rootOne = edges[i].front().start; //rootOne = edge "start"
+                rootTwo = edges[i].front().destination; //rootTwo = edge "end"
+                
+                int counts = 0;
+                //find components/sets for every edge
+                int setOne = find(parents, rootOne, counts);
+                int setTwo = find(parents, rootTwo, counts);
+                
+                //make sure both setOne and setTwo are not within same component
+                if(setOne != setTwo)
+                {
+                    //add edge to mst
+                    addEdge(result, rootOne, rootTwo, edges[i].front().weight);
+                    edgeCount++; //debug
+                    
+                    //combine the trees
+                    joinComps(parents, rank, rootOne, rootTwo);
+                    numTrees--;
+                }
+            }
+        }
+        //std::cout << "EdgeCount = " << edgeCount << "\n";
+        //std::cout << "numTrees: " << numTrees << "\n";
+        //numTrees--;
+    }
+    
+    std::cout << "Number of edges in the MST is: " << edgeCount << "\n";
+    
+    delete[] parents;
+    delete[] rank;
+    delete[] trees;
+    delete[] edges;
+    
+    return;
+}
+//*************** END BORUVKAS ALGORITHM METHODS ***************
+
+
 
 //*************** BEGIN MAIN FUNCTION ***************
 int main(int argc, char** argv) {
@@ -337,7 +533,7 @@ int main(int argc, char** argv) {
     std::cout << "The root node for this graph is: " << root << "\n";
     std::cout << "The number of edges in this graph is: " << edges << "\n";
     
-    /*
+    
     //check if graph is connected
     bool *notConnected = new bool[numVertices](); //number of vertices not connected to the graph - not reached by traversal from root
     bool connected = isConnected(graph, checkVertex, root, numVertices, notConnected);
@@ -354,7 +550,7 @@ int main(int argc, char** argv) {
     }
     else
         std::cout << "The initial graph is fully connected!\n\n";
-    */
+    
 	
     //std::cout << "Printing initial graph:\n";
     //print the initial graph
@@ -363,7 +559,8 @@ int main(int argc, char** argv) {
     // Start measuring time
     auto begin = std::chrono::high_resolution_clock::now();
     
-	//BFS or MST or whatever
+	//find mst of the graph
+    minSpanningTree(graph, result, root, numVertices, edges, notConnected, cores);
     
     // Stop measuring time and calculate the elapsed time
     auto end = std::chrono::high_resolution_clock::now();
