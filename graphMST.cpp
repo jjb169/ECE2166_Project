@@ -263,18 +263,17 @@ bool isCyclic(std::vector<edge> graph[], std::vector<edge> mst[], int numVertice
 
 
 //*************** BEGIN BORUVKAS ALGORITHM METHODS ***************
-int find(int parents[], int vert, int counts)
+int find(int parents[], int vert)
 {
     if(parents[vert] == vert)
         return vert;
-    return find(parents, parents[vert], counts);
+    return find(parents, parents[vert]);
 }
 
 void joinComps(int parents[], int rank[], int startOne, int startTwo)
 {
-    int counts = 0;
-    int rootOne = find(parents, startOne, counts);
-    int rootTwo = find(parents, startTwo, counts);
+    int rootOne = find(parents, startOne);
+    int rootTwo = find(parents, startTwo);
 
     //attach smaller ranked tree under root of higher ranked one
     if(rank[rootOne] < rank[rootTwo])
@@ -291,6 +290,10 @@ void joinComps(int parents[], int rank[], int startOne, int startTwo)
     
 void minSpanningTree(std::vector<edge> graph[], std::vector<edge> result[], int root, int numVertices, int numEdges, bool notConnected[], int cores)
 {
+	//timing vars
+	double eddgeFindTime = 0, combineTime = 0, initCleartime = 0, removeTreeTime = 0, tempOne = 0, tempTwo = 0;
+	
+	tempOne = omp_get_wtime();
     //number of trees initially is just the number of vertices
     int numTrees = numVertices-1;
     //remove any vertices not connected
@@ -299,6 +302,8 @@ void minSpanningTree(std::vector<edge> graph[], std::vector<edge> result[], int 
         if(notConnected[i])
             numTrees--;
     }
+	tempTwo = omp_get_wtime();
+	removeTreeTime += (tempTwo - tempOne);
     
     //array of vector of edges representing each tree
     std::vector<edge> *trees = new std::vector<edge>[numVertices];
@@ -310,14 +315,18 @@ void minSpanningTree(std::vector<edge> graph[], std::vector<edge> result[], int 
     std::vector<edge> *edges = new std::vector<edge>[numVertices];
     
     //vars to hold vertex numbers
-    int rootOne, rootTwo;
+    //int rootOne, rootTwo;
     
+	tempOne = omp_get_wtime();
     //initialize parent array
+	#pragma omp parallel for shared( parents, rank, numVertices ) num_threads( cores ) default( none ) schedule( dynamic, 5000 )
     for(int i = 1; i < numVertices; i++)
     {
         parents[i] = i;
         rank[i] = 0;
     }
+	tempTwo = omp_get_wtime();
+	initCleartime += (tempTwo - tempOne);
     
     //std::cout << "Number of trees to begin: " << numTrees << "\n"; 
     
@@ -327,81 +336,49 @@ void minSpanningTree(std::vector<edge> graph[], std::vector<edge> result[], int 
     //while there are more than 1 tree (assuming entire graph is connected to begin), keep going
     while(numTrees > 1)
     {
+		tempOne = omp_get_wtime();
         //clear all edges
+		#pragma omp parallel for shared( edges, numVertices ) num_threads( cores ) default( none ) schedule( dynamic, 5000 )
         for(int i = 1; i < numVertices; i++)
             edges[i].clear();
+		tempTwo = omp_get_wtime();
+		initCleartime += (tempTwo - tempOne);
         
+		tempOne = omp_get_wtime();
+		
         //loop through all edges and update the cheapest one for each component
-		#pragma omp parallel for private( rootOne, rootTwo ) num_threads( cores )
+		#pragma omp parallel for shared( numVertices, notConnected, graph, parents, edges ) num_threads( cores ) default( none ) schedule( dynamic, 5000 )
         for(int i = 1; i < numVertices; i++)
         {
-			
             //if the current vertex is not connected to the main graph, jump to next iteration
             if(notConnected[i])
                 continue;
             //std::cout << "Looking through edges for vertex: " << i << "\n";
             for(auto curr : graph[i])
             {
-				
                 //std::cout << "Current edge " << i << " --" << curr.weight << "-- " << curr.destination << "\n";
-                rootOne = i; //rootOne = edge "start"
-                rootTwo = curr.destination; //rootTwo = edge "end"
+                int rootOne = i; //rootOne = edge "start"
+                int rootTwo = curr.destination; //rootTwo = edge "end"
                 
-                int count = 0;
                 //find components/sets for every edge
-                int setOne = find(parents, rootOne, count);
-                int setTwo = find(parents, rootTwo, count);
+                int setOne = find(parents, rootOne);
+                int setTwo = find(parents, rootTwo);
                 
                 //if the two vertices found are part of the same component, ignore
                 if(setOne != setTwo)
                 {
-					if(edges[setOne].empty() || (edges[setOne].front().weight > curr.weight))
-					{
-						/*
-						if(!edges[setOne].empty())
-						{
-							std::cout << "S1 Edge " << rootOne << " --" << curr.weight << "-- " << rootTwo << " is less than \n";
-							std::cout << "        " << edges[setOne].front().start << " --" << edges[setOne].front().weight << "-- " << edges[setOne].front().destination << "\n";
-						}
-						*/
-						#pragma omp critical( setone )
-						{
-							edges[setOne].clear();
-							edges[setOne].push_back({rootOne, rootTwo, curr.weight});
-						}
-						//maybe push back for edges[setTwo] as well?
-						/*
-						for(auto test : edges[i])
-						{
-							std::cout << "S1 Cheapest edge for vertex " << setOne << " is " << setOne << " --" << test.weight << "-- " << test.destination << "\n";
-						}
-						*/
-					}
-					if(edges[setTwo].empty() || (edges[setTwo].front().weight > curr.weight))
-					{
-						/*
-						if(!edges[setTwo].empty())
-						{
-							std::cout << "S2 Edge " << rootOne << " --" << curr.weight << "-- " << rootTwo << " is less than \n";
-							std::cout << "        " << edges[setTwo].front().start << " --" << edges[setTwo].front().weight << "-- " << edges[setTwo].front().destination << "\n";
-						}
-						*/
-						#pragma omp critical( settwo )
-						{
-							edges[setTwo].clear();
-							edges[setTwo].push_back({rootOne, rootTwo, curr.weight});
-						}
-						//maybe push back for edges[setOne] as well?
-						/*
-						for(auto test : edges[i])
-						{
-							std::cout << "S2 Cheapest edge for vertex " << setTwo << " is " << setTwo << " --" << test.weight << "-- " << test.destination << "\n";
-						}
-						*/
-					}
+                    if(edges[setOne].empty() || (edges[setOne].front().weight > curr.weight))
+                    {
+                        edges[setOne].clear();
+                        edges[setOne].push_back({rootOne, rootTwo, curr.weight});
+                    }
                 }
             }
         }
+		
+		tempTwo = omp_get_wtime();
+		
+		eddgeFindTime += (tempTwo - tempOne);
         
         /*
         //debug - print out cheapest edges
@@ -413,20 +390,22 @@ void minSpanningTree(std::vector<edge> graph[], std::vector<edge> result[], int 
             }
         }
         */
+		
+		tempOne = omp_get_wtime();
         
         //add the cheapest edges to the MST
+		//want to do this in serial so there aren't any data races or anything when combining trees
         for(int i = 1; i < numVertices; i++)
         {
             //check if there is a cheapest edge for the current set
             if(!edges[i].empty())
             {
-                rootOne = edges[i].front().start; //rootOne = edge "start"
-                rootTwo = edges[i].front().destination; //rootTwo = edge "end"
+                int rootOne = edges[i].front().start; //rootOne = edge "start"
+                int rootTwo = edges[i].front().destination; //rootTwo = edge "end"
                 
-                int counts = 0;
                 //find components/sets for every edge
-                int setOne = find(parents, rootOne, counts);
-                int setTwo = find(parents, rootTwo, counts);
+                int setOne = find(parents, rootOne);
+                int setTwo = find(parents, rootTwo);
                 
                 //make sure both setOne and setTwo are not within same component
                 if(setOne != setTwo)
@@ -441,12 +420,20 @@ void minSpanningTree(std::vector<edge> graph[], std::vector<edge> result[], int 
                 }
             }
         }
+		
+		tempTwo = omp_get_wtime();
+		
+		combineTime += (tempTwo - tempOne);
         //std::cout << "EdgeCount = " << edgeCount << "\n";
         //std::cout << "numTrees: " << numTrees << "\n";
         //numTrees--;
     }
     
     std::cout << "Number of edges in the MST is: " << edgeCount << "\n";
+	std::cout << "Time to initialize and clear arrays/vectors: " << initCleartime << "\n";
+	std::cout << "Time to find cheapest edges: " << eddgeFindTime << "\n";
+	std::cout << "Time to add cheapest edges: " << combineTime << "\n";
+	std::cout << "Time to initially remove disconnected trees: " << removeTreeTime << "\n";
     
     delete[] parents;
     delete[] rank;
@@ -461,6 +448,11 @@ void minSpanningTree(std::vector<edge> graph[], std::vector<edge> result[], int 
 
 //*************** BEGIN MAIN FUNCTION ***************
 int main(int argc, char** argv) {
+
+	//time variables
+	double start = 0.0;
+	double end = 0.0;
+	double total = 0.0;
 
     //variables coming from graph
     int numVertices = 0, root = -1, edges = -1;
@@ -478,11 +470,17 @@ int main(int argc, char** argv) {
     else
         delimeter = ' ';
     //grab file name from cmd line
-    std::string fname = argv[1];
-    
-    //set # cores as arg 3
+    std::string fname = argv[1]; 
+	
+	//set # cores as arg 3
     std::cout << "Max # threads = " << omp_get_max_threads() << "\n";
     int cores = std::atoi(argv[3]);
+	if(cores > omp_get_max_threads())
+	{
+		std::cout << "Number of requested cores: " << cores << " is larger than maximum: " << omp_get_max_threads() << "\n";
+		std::cout << "Will be running on " << omp_get_max_threads() << " cores instead.\n";
+		cores = omp_get_max_threads();
+	}
     std::cout << "Running on " << cores << " cores\n"; 
     
     //pointer to input file containing graph data
@@ -556,20 +554,34 @@ int main(int argc, char** argv) {
     //print the initial graph
     //printGraph(graph, numVertices, checkVertex);
     
-    // Start measuring time
-    auto begin = std::chrono::high_resolution_clock::now();
+	printf("Starting timer and running MST algorithm...\n");
+    //start measuring time
+	start = omp_get_wtime();	
     
 	//find mst of the graph
     minSpanningTree(graph, result, root, numVertices, edges, notConnected, cores);
     
-    // Stop measuring time and calculate the elapsed time
-    auto end = std::chrono::high_resolution_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin);
-    printf("Time measured: %.9f seconds.\n", elapsed.count() * 1e-9);
+    //get end time after ops finish
+	end = omp_get_wtime();
+	//calculate total time
+	total = end - start;
+    //print execution time
+	printf("Total execution time: %.8lf seconds\n", total);
     
     //std::cout << "\nPrinting minimum spanning tree:\n";
     //print mst
     //printGraph(result, numVertices, checkVertex);
+	//print total weight
+	
+	double weightTotal = 0;
+	for(int i = 1; i < numVertices; i++)
+	{
+		for(auto curr : result[i])
+        {
+			weightTotal = (double) weightTotal + curr.weight;
+		}
+	}
+	std::cout << "Total weight for MST is: " << weightTotal/2 << "\n";
     
     
     delete[] checkVertex;

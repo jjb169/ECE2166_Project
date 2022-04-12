@@ -4,7 +4,7 @@
 #SBATCH --ntasks-per-node=16
 #SBATCH --cluster=smp
 #SBATCH --partition=smp
-#SBATCH --time=00:05:00
+#SBATCH --time=00:30:00
 #SBATCH --account=ece2166_2022s
 
 #purge and load needed modules

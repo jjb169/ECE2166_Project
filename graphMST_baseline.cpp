@@ -290,6 +290,10 @@ void joinComps(int parents[], int rank[], int startOne, int startTwo)
     
 void minSpanningTree(std::vector<edge> graph[], std::vector<edge> result[], int root, int numVertices, int numEdges, bool notConnected[])
 {
+	//timing vars
+	double eddgeFindTime = 0, combineTime = 0, initCleartime = 0, removeTreeTime = 0, tempOne = 0, tempTwo = 0;
+	
+	tempOne = omp_get_wtime();
     //number of trees initially is just the number of vertices
     int numTrees = numVertices-1;
     //remove any vertices not connected
@@ -298,6 +302,8 @@ void minSpanningTree(std::vector<edge> graph[], std::vector<edge> result[], int 
         if(notConnected[i])
             numTrees--;
     }
+	tempTwo = omp_get_wtime();
+	removeTreeTime += (tempTwo - tempOne);
     
     //array of vector of edges representing each tree
     std::vector<edge> *trees = new std::vector<edge>[numVertices];
@@ -311,12 +317,15 @@ void minSpanningTree(std::vector<edge> graph[], std::vector<edge> result[], int 
     //vars to hold vertex numbers
     int rootOne, rootTwo;
     
+	tempOne = omp_get_wtime();
     //initialize parent array
     for(int i = 1; i < numVertices; i++)
     {
         parents[i] = i;
         rank[i] = 0;
     }
+	tempTwo = omp_get_wtime();
+	initCleartime += (tempTwo - tempOne);
     
     //std::cout << "Number of trees to begin: " << numTrees << "\n"; 
     
@@ -326,10 +335,15 @@ void minSpanningTree(std::vector<edge> graph[], std::vector<edge> result[], int 
     //while there are more than 1 tree (assuming entire graph is connected to begin), keep going
     while(numTrees > 1)
     {
+		tempOne = omp_get_wtime();
         //clear all edges
         for(int i = 1; i < numVertices; i++)
             edges[i].clear();
+		tempTwo = omp_get_wtime();
+		initCleartime += (tempTwo - tempOne);
         
+		tempOne = omp_get_wtime();
+		
         //loop through all edges and update the cheapest one for each component
         for(int i = 1; i < numVertices; i++)
         {
@@ -391,6 +405,10 @@ void minSpanningTree(std::vector<edge> graph[], std::vector<edge> result[], int 
                 }
             }
         }
+		
+		tempTwo = omp_get_wtime();
+		
+		eddgeFindTime += (tempTwo - tempOne);
         
         /*
         //debug - print out cheapest edges
@@ -402,6 +420,8 @@ void minSpanningTree(std::vector<edge> graph[], std::vector<edge> result[], int 
             }
         }
         */
+		
+		tempOne = omp_get_wtime();
         
         //add the cheapest edges to the MST
         for(int i = 1; i < numVertices; i++)
@@ -429,12 +449,20 @@ void minSpanningTree(std::vector<edge> graph[], std::vector<edge> result[], int 
                 }
             }
         }
+		
+		tempTwo = omp_get_wtime();
+		
+		combineTime += (tempTwo - tempOne);
         //std::cout << "EdgeCount = " << edgeCount << "\n";
         //std::cout << "numTrees: " << numTrees << "\n";
         //numTrees--;
     }
     
     std::cout << "Number of edges in the MST is: " << edgeCount << "\n";
+	std::cout << "Time to initialize and clear arrays/vectors: " << initCleartime << "\n";
+	std::cout << "Time to find cheapest edges: " << eddgeFindTime << "\n";
+	std::cout << "Time to add cheapest edges: " << combineTime << "\n";
+	std::cout << "Time to initially remove disconnected trees: " << removeTreeTime << "\n";
     
     delete[] parents;
     delete[] rank;
@@ -562,15 +590,16 @@ int main(int argc, char** argv) {
     //print mst
     //printGraph(result, numVertices, checkVertex);
 	//print total weight
-	int weightTotal = 0;
+	
+	double weightTotal = 0;
 	for(int i = 1; i < numVertices; i++)
 	{
 		for(auto curr : result[i])
         {
-			weightTotal = weightTotal + curr.weight;
+			weightTotal = (double) weightTotal + curr.weight;
 		}
 	}
-	std::cout << "Total weight for MST is: " << weightTotal << "\n";
+	std::cout << "Total weight for MST is: " << weightTotal/2 << "\n";
     
     
     delete[] checkVertex;
