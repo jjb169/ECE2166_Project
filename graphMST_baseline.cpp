@@ -12,8 +12,6 @@
 
 #include <omp.h>
 
-enum Color {WHITE, GRAY, BLACK};
-
 //*************** BEGIN GRAPH REPRESENTATION FUNCTIONS ***************
 struct edge
 {
@@ -196,63 +194,41 @@ bool isConnected(std::vector<edge> graph[], int exist[], int start, int numVerti
 
 
 //******* BEGIN CYCLIC METHODS *******
-bool cyclicTraverse(std::vector<edge> graph[], std::vector<edge> mst[], int curr, int colors[])
+bool cyclicTraverse(int curr, std::vector<edge> graph[], bool visited[], int parent)
 {
-    //set color of current vertex to GRAY, meaning it is being processed right now
-    colors[curr] = GRAY;
+    //set current index to visited
+    visited[curr] = true;
     
     //traverse through all edges
-    for(auto next : graph[curr])
-    {
-        //doing this extra for loop check due to the way I have the MST stored (ie edges in the destination slots)
-        //std::cout << "Graph edge: " << curr << " --" << next.weight << "--> " << next.destination << "\n";
-        bool traverse = false;
-        for(auto mstCheck : mst[next.destination])
-        {
-            //std::cout << "MST edge: " << mstCheck.start << " --" << mstCheck.weight << "--> " << mstCheck.destination << "\n";
-            if(next.destination == mstCheck.destination && next.weight == mstCheck.weight)
-            {
-                traverse = true;
-                break;
-            }
-        }
-        
-        if(traverse)
-        {
-            int vertex = next.destination;
-            std::cout << "Traversing from " << curr << " to " << vertex << "\n";
-            //check if GRAY, if so there is a cycle
-            if(colors[vertex] == GRAY)
-            {
-                std::cout << "Cycle found on edge " << curr << " to " << vertex << "\n";
-                return true;
-            }
-
-            //if vertex not processed, but a back edge exists, return true
-            if(colors[vertex] == WHITE && cyclicTraverse(graph, mst, vertex, colors))
-            {
-                return true;
-            }
-        }
-    }
-    
-    //mark vertex as processed
-    colors[curr] = BLACK;
+	for(auto nextEdge : graph[curr])
+	{
+		//if the neighbor hasn't been visited yet, traverse that edge
+		if(!visited[nextEdge.destination])
+		{
+			if(cyclicTraverse(nextEdge.destination, graph, visited, curr))
+				return true;
+		}
+		//if there is a neighbor that has been traversed and is not the parent of this node, there is a cycle
+		else if(nextEdge.destination != parent)
+			return true;
+		
+		//if all edges are exhausted and no cycle detected, return false for no cycles present
+	}    
     
     return false;
 }
 
-bool isCyclic(std::vector<edge> graph[], std::vector<edge> mst[], int numVertices)
+bool isCyclic(std::vector<edge> mst[], int numVertices)
 {
     //initialize all vertex color's to white (unprocessed)
-    int *colors = new int[numVertices];
+    bool *visited = new bool[numVertices];
     for(int i = 0; i < numVertices; i++)
-        colors[i] = WHITE;
+        visited[i] = false;
     
     //DFS all vertices
-    for(int i = 0; i < numVertices; i++)
-        if(colors[i] == WHITE)
-            if(cyclicTraverse(graph, mst, i, colors) == true)
+    for(int i = 1; i < numVertices; i++)
+        if(!visited[i])
+            if(cyclicTraverse(i, mst, visited, -1))
                 return true;
     
     return false;
@@ -291,9 +267,9 @@ void joinComps(int parents[], int rank[], int startOne, int startTwo)
 void minSpanningTree(std::vector<edge> graph[], std::vector<edge> result[], int root, int numVertices, int numEdges, bool notConnected[])
 {
 	//timing vars
-	double eddgeFindTime = 0, combineTime = 0, initCleartime = 0, removeTreeTime = 0, tempOne = 0, tempTwo = 0;
+	//double eddgeFindTime = 0, combineTime = 0, initCleartime = 0, removeTreeTime = 0, tempOne = 0, tempTwo = 0;
 	
-	tempOne = omp_get_wtime();
+	//tempOne = omp_get_wtime();
     //number of trees initially is just the number of vertices
     int numTrees = numVertices-1;
     //remove any vertices not connected
@@ -302,8 +278,8 @@ void minSpanningTree(std::vector<edge> graph[], std::vector<edge> result[], int 
         if(notConnected[i])
             numTrees--;
     }
-	tempTwo = omp_get_wtime();
-	removeTreeTime += (tempTwo - tempOne);
+	//tempTwo = omp_get_wtime();
+	//removeTreeTime += (tempTwo - tempOne);
     
     //array of vector of edges representing each tree
     std::vector<edge> *trees = new std::vector<edge>[numVertices];
@@ -317,15 +293,15 @@ void minSpanningTree(std::vector<edge> graph[], std::vector<edge> result[], int 
     //vars to hold vertex numbers
     int rootOne, rootTwo;
     
-	tempOne = omp_get_wtime();
+	//tempOne = omp_get_wtime();
     //initialize parent array
     for(int i = 1; i < numVertices; i++)
     {
         parents[i] = i;
         rank[i] = 0;
     }
-	tempTwo = omp_get_wtime();
-	initCleartime += (tempTwo - tempOne);
+	//tempTwo = omp_get_wtime();
+	//initCleartime += (tempTwo - tempOne);
     
     //std::cout << "Number of trees to begin: " << numTrees << "\n"; 
     
@@ -335,14 +311,14 @@ void minSpanningTree(std::vector<edge> graph[], std::vector<edge> result[], int 
     //while there are more than 1 tree (assuming entire graph is connected to begin), keep going
     while(numTrees > 1)
     {
-		tempOne = omp_get_wtime();
+		//tempOne = omp_get_wtime();
         //clear all edges
         for(int i = 1; i < numVertices; i++)
             edges[i].clear();
-		tempTwo = omp_get_wtime();
-		initCleartime += (tempTwo - tempOne);
+		//tempTwo = omp_get_wtime();
+		//initCleartime += (tempTwo - tempOne);
         
-		tempOne = omp_get_wtime();
+		//tempOne = omp_get_wtime();
 		
         //loop through all edges and update the cheapest one for each component
         for(int i = 1; i < numVertices; i++)
@@ -406,9 +382,9 @@ void minSpanningTree(std::vector<edge> graph[], std::vector<edge> result[], int 
             }
         }
 		
-		tempTwo = omp_get_wtime();
+		//tempTwo = omp_get_wtime();
 		
-		eddgeFindTime += (tempTwo - tempOne);
+		//eddgeFindTime += (tempTwo - tempOne);
         
         /*
         //debug - print out cheapest edges
@@ -421,7 +397,7 @@ void minSpanningTree(std::vector<edge> graph[], std::vector<edge> result[], int 
         }
         */
 		
-		tempOne = omp_get_wtime();
+		//tempOne = omp_get_wtime();
         
         //add the cheapest edges to the MST
         for(int i = 1; i < numVertices; i++)
@@ -450,19 +426,19 @@ void minSpanningTree(std::vector<edge> graph[], std::vector<edge> result[], int 
             }
         }
 		
-		tempTwo = omp_get_wtime();
+		//tempTwo = omp_get_wtime();
 		
-		combineTime += (tempTwo - tempOne);
+		//combineTime += (tempTwo - tempOne);
         //std::cout << "EdgeCount = " << edgeCount << "\n";
         //std::cout << "numTrees: " << numTrees << "\n";
         //numTrees--;
     }
     
-    std::cout << "Number of edges in the MST is: " << edgeCount << "\n";
-	std::cout << "Time to initialize and clear arrays/vectors: " << initCleartime << "\n";
-	std::cout << "Time to find cheapest edges: " << eddgeFindTime << "\n";
-	std::cout << "Time to add cheapest edges: " << combineTime << "\n";
-	std::cout << "Time to initially remove disconnected trees: " << removeTreeTime << "\n";
+    //std::cout << "Number of edges in the MST is: " << edgeCount << "\n";
+	//std::cout << "Time to initialize and clear arrays/vectors: " << initCleartime << "\n";
+	//std::cout << "Time to find cheapest edges: " << eddgeFindTime << "\n";
+	//std::cout << "Time to add cheapest edges: " << combineTime << "\n";
+	//std::cout << "Time to initially remove disconnected trees: " << removeTreeTime << "\n";
     
     delete[] parents;
     delete[] rank;
@@ -496,10 +472,13 @@ int main(int argc, char** argv) {
     int delim = std::atoi(argv[2]);
     if(delim == 0)
         delimeter = ',';
-    else
+    else if(delim == 1)
         delimeter = ' ';
+	else
+		delimeter = '	';
     //grab file name from cmd line
     std::string fname = argv[1]; 
+	std::cout << "Graph file in use: " << fname << "\n";
     
     //pointer to input file containing graph data
     std::fstream file;
@@ -508,7 +487,16 @@ int main(int argc, char** argv) {
     file.open(fname, std::ios::in);    
 
     //need the number of nodes in the graph, which is the first line of the csv
-    if(file.is_open())
+    //work around for the two graphs named like "201512020130.v128568730_e270234840.tsv"
+	if(fname.compare("graphs/201512020130.v128568730_e270234840.tsv") == 0)
+	{
+		numVertices = 128568730 + 1;
+	}
+	else if(fname.compare("graphs/201512020330.v226196185_e480047894.tsv") == 0)
+	{
+		numVertices = 226196185 + 1;
+	}
+    else if(file.is_open())
     {
         //need to read until no % lead the line
         std::getline(file, row);
@@ -571,35 +559,65 @@ int main(int argc, char** argv) {
     //std::cout << "Printing initial graph:\n";
     //print the initial graph
     //printGraph(graph, numVertices, checkVertex);
-    
-	printf("Starting timer and running MST algorithm...\n");
-    //start measuring time
-	start = omp_get_wtime();	
-    
-	//find mst of the graph
-    minSpanningTree(graph, result, root, numVertices, edges, notConnected);
-    
-    //get end time after ops finish
-	end = omp_get_wtime();
-	//calculate total time
-	total = end - start;
-    //print execution time
-	printf("Total execution time: %.8lf seconds\n", total);
-    
-    //std::cout << "\nPrinting minimum spanning tree:\n";
-    //print mst
-    //printGraph(result, numVertices, checkVertex);
-	//print total weight
 	
-	double weightTotal = 0;
-	for(int i = 1; i < numVertices; i++)
+    double allTime = 0.0, avgTime = 0.0;
+	
+	//going to run MST 10 times and average the timing of the results
+	for(int i = 0; i < 10; i++)
 	{
-		for(auto curr : result[i])
-        {
-			weightTotal = (double) weightTotal + curr.weight;
+		
+		printf("Starting timer and running MST algorithm...\n");
+		//start measuring time
+		start = omp_get_wtime();	
+		
+		//find mst of the graph
+		minSpanningTree(graph, result, root, numVertices, edges, notConnected);
+		
+		//get end time after ops finish
+		end = omp_get_wtime();
+		//calculate total time
+		total = end - start;
+		//print execution time
+		printf("Total execution time: %.8lf seconds\n", total);
+		//add this runtime to the total
+		allTime = total + allTime;
+		
+		//std::cout << "\nPrinting minimum spanning tree:\n";
+		//print mst
+		//printGraph(result, numVertices, checkVertex);
+		//print total weight
+		
+		//still need to ensure correct result is produced every run
+		double weightTotal = 0;
+		double edgesTotal = 0;
+		for(int i = 1; i < numVertices; i++)
+		{
+			for(auto curr : result[i])
+			{
+				weightTotal = (double) weightTotal + curr.weight;
+				edgesTotal++;
+			}
 		}
+		printf("Total edges in MST is: %.0lf\n", edgesTotal/2); 
+		printf("Total weight for MST is: %.0lf\n", weightTotal/2);
+		
+		//check if cycles exist
+		if(isCyclic(result, numVertices))
+			std::cout << "There are cycles within the MST!\n";
+		else
+			std::cout << "There are no cycles within the MST!\n";
+		
+		//clear the tree for next run
+		for(int i = 1; i < numVertices; i++)
+		{
+			result[i].clear();
+		}
+		
 	}
-	std::cout << "Total weight for MST is: " << weightTotal/2 << "\n";
+	
+	avgTime = allTime / 10;
+	//print average runtime
+	std::cout << "Average time across MST runs is: " << avgTime << "\n";	
     
     
     delete[] checkVertex;
