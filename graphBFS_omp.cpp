@@ -1,11 +1,3 @@
-/*
- * @Author: shen fan
- * @Date: 2022-04-13 17:37:36
- * @LastEditors: shen fan
- * @LastEditTime: 2022-04-13 17:37:36
- * @Description:       
- * @FilePath: /ECE2166_Project-main/graphBFS_omp.cpp
- */
 
 #include <stdio.h>
 #include <chrono>
@@ -20,8 +12,12 @@
 #include<queue>
 #include <omp.h>
 
+using namespace std;
+bool *visited = NULL;
+int v;
+queue<int> q;
 enum Color {WHITE, GRAY, BLACK};
-
+int m =0;
 //*************** BEGIN GRAPH REPRESENTATION FUNCTIONS ***************
 struct edge
 {
@@ -35,7 +31,7 @@ void addEdge(std::vector<edge> graph[], int start, int dest, int weight)
 {
     graph[start].push_back({start, dest, weight}); //add a struct directly with the use of {...}
     graph[dest].push_back({dest, start, weight}); //add a struct directly with the use of {...}
-    //std::cout << "Just added for vertex " << start << " edge with dest/weight = " << dest << "/" << weight << "\n";
+    // std::cout << "Just added for vertex " << start << " edge with dest/weight = " << dest << "/" << weight << "\n";
 }
 
 //print the adjacency list representation of graph
@@ -51,7 +47,7 @@ int printGraph(std::vector<edge> adj[], int length, int vertices[])
             if(vertex != 0)
             {
                 std::cout << "\nAdjacency list of vertex " << vertex << "\n";
-                for (auto curr : adj[vertex])
+                for (edge curr : adj[vertex])
                 {
                     std::cout << vertex << " -- " << curr.weight << " -- " << curr.destination << "\n";
                     count++;
@@ -266,41 +262,62 @@ bool isCyclic(std::vector<edge> graph[], std::vector<edge> mst[], int numVertice
     return false;
 }
 //******* END CYCLIC METHODS *******
-
-//*************** END GRAPH CHECK METHODS (CONNECTED & CYCLIC) ***************
-void bfs(std::vector<edge> graph[],int numVertices, int root, int cores)
-{   
-    //double initCleartime = 0, tempOne = 0, tempTwo = 0;
-    bool *visited = new bool[numVertices];
+void p_init(int numVertices) {
+    visited = new bool[numVertices];
     for(int i = 0; i < numVertices; i++)
     {
         visited[i] = false;
     }
-    std::list<int> q;
-    visited[root] = true;
-    q.push_back(root);
+}
+//*************** END GRAPH CHECK METHODS (CONNECTED & CYCLIC) ***************
+void bfs(std::vector<edge> graph[],int numVertices, int root,int cores)
+{   
+    //double initCleartime = 0, tempOne = 0, tempTwo = 0;
+
+    omp_set_num_threads(cores);
+	// Setup omp lock
+	omp_lock_t lck;
+	omp_init_lock (&lck);
+    printf("begin to check.....");
+    q.push(root);
     while (!q.empty())
     {
-        // dequeue front node and print it
-        int v = q.front();
-        q.pop_front();
-        //std::cout << "current node" << v <<" ";
-        //tempOne = omp_get_wtime();
-        // loop till queue is empty
-        #pragma omp parallel for shared(graph) num_threads( cores )schedule( dynamic, 200 )
-        for (auto edge: graph[v])
-        {
-            int adjvertex = edge.destination;
-            if (!visited[adjvertex])
+        #pragma omp parallel 
+		{
+			#pragma omp single
+			{
+                v = q.front();
+                q.pop();
+                //printf("visited\n", visited);
+                //printf("current node----",v);
+                //std::cout << "current node" << v << endl;
+            }
+        //std::cout << "graph length" << graph[v].size() << endl;;
+            #pragma omp barrier
+
+            #pragma omp parallel for shared (lck) schedule (dynamic)
+            for (int i = 0; i < graph[v].size(); i++)
             {
-                visited[adjvertex] = true;
-                q.push_back(adjvertex);
+                //std::cout << "get edge";  
+                omp_set_lock (&lck);
+                edge e = graph[v][i];
+                int adjvertex = e.destination;
+                
+                if (!visited[adjvertex])
+                {
+                    q.push(adjvertex);
+                    visited[adjvertex] = true;
+                    m = m+1;
+                }
+                omp_unset_lock(&lck);
             }
         }
-        //tempTwo = omp_get_wtime();
-	    //initCleartime += (tempTwo - tempOne);
-        //std::cout << "Time to initialize and clear arrays/vectors: " << initCleartime << "\n";
-    }  
+        //std::cout << "graph length++++++" << sizeof(graph[v]) / sizeof(edge);
+        //std::cout << "m----------" <<m;  
+    } 
+    std::cout << "m----------" <<m;  
+    omp_destroy_lock (&lck); 
+    free(visited);
 }
     
 //*************** BEGIN MAIN FUNCTION ***************
@@ -335,7 +352,7 @@ int main(int argc, char** argv) {
 		std::cout << "Will be running on " << omp_get_max_threads() << " cores instead.\n";
 		cores = omp_get_max_threads();
 	}
-    std::cout << "Running on " << cores << " cores\n"; 
+    std::cout << "R  unning on " << cores << " cores\n"; 
     
     //pointer to input file containing graph data
     std::fstream file;
@@ -406,14 +423,15 @@ int main(int argc, char** argv) {
 	
     //std::cout << "Printing initial graph:\n";
     //print the initial graph
-    //printGraph(graph, numVertices, checkVertex);
     
     // Start measuring time
     //auto begin = std::chrono::high_resolution_clock::now();
-    printf("Begin to run and collect time for baseline....\n");
+    printf("Begin to run and collect time for openmp....\n");
 	// BFS or MST or whatever
+    p_init(numVertices);
     start = omp_get_wtime();
-    bfs(graph,numVertices,root, cores);
+    //printGraph(graph, numVertices, checkVertex);
+    bfs(graph, numVertices, root,cores);
     //  Stop measuring time and calculate the elapsed time
     //auto end = std::chrono::high_resolution_clock::now();
     //auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin);
