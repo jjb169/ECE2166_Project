@@ -316,8 +316,9 @@ void joinComps(int parents[], int rank[], int startOne, int startTwo, std::vecto
 			groups[rootOne].push_back(i);
 		groups[rootTwo].clear();
 		groups[rootTwo].push_back(-1);
-        rank[rootOne]++;
 		*/
+        rank[rootOne]++;
+		
 	}
 }
 

@@ -186,9 +186,6 @@ bool isConnected(std::vector<edge> graph[], int exist[], int start, int numVerti
             //std::cout << "Vertex " << i << " is not connected\n";
             connected = false;
             notConnected[i] = true;
-            //free(visitFirst);
-            //free(visitSecond);
-           // return false;
         }
     }
     
@@ -362,17 +359,6 @@ void minSpanningTree(std::vector<edge> graph[], std::vector<edge> result[], int 
 		//tempTwo = omp_get_wtime();
 		
 		//edgeFindTime += (tempTwo - tempOne);
-        
-        /*
-        //debug - print out cheapest edges
-        for(int i = 1; i < numVertices; i++)
-        {
-            for(auto curr : edges[i])
-            {
-                std::cout << "Cheapest edge for tree rooted at " << i << " is " << curr.start << " --" << curr.weight << "-- " << curr.destination << "\n";
-            }
-        }
-        */
 		
 		//tempOne = omp_get_wtime();
         
@@ -405,11 +391,6 @@ void minSpanningTree(std::vector<edge> graph[], std::vector<edge> result[], int 
         }
 		
 		//tempTwo = omp_get_wtime();
-		
-		//combineTime += (tempTwo - tempOne);
-        //std::cout << "EdgeCount = " << edgeCount << "\n";
-        //std::cout << "numTrees: " << numTrees << "\n";
-        //numTrees--;
     }
     
     //std::cout << "Number of edges in the MST is: " << edgeCount << "\n";
@@ -418,6 +399,7 @@ void minSpanningTree(std::vector<edge> graph[], std::vector<edge> result[], int 
 	//std::cout << "Time to add cheapest edges: " << combineTime << "\n";
 	//std::cout << "Time to initially remove disconnected trees: " << removeTreeTime << "\n";
     
+	//free variables allocated above
     delete[] parents;
     delete[] rank;
     delete[] trees;
@@ -604,11 +586,12 @@ int main(int argc, char** argv) {
 		
 	}
 	
+	//calculate the average of all 10 runtimes
 	avgTime = allTime / 10;
 	//print average runtime
 	std::cout << "Average time across MST runs is: " << avgTime << "\n";
     
-    
+    //free data allocated above
     delete[] checkVertex;
     delete[] graph;
     delete[] result;
