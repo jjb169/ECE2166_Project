@@ -1,3 +1,4 @@
+
 #include <stdio.h>
 #include <chrono>
 #include <fstream>
@@ -11,6 +12,8 @@
 
 #include <omp.h>
 
+enum Color {WHITE, GRAY, BLACK};
+
 //*************** BEGIN GRAPH REPRESENTATION FUNCTIONS ***************
 struct edge
 {
@@ -19,6 +22,11 @@ struct edge
     int weight;
 };
 
+struct groupRep
+{
+	int root;
+	int moreNodes;
+};
 
 void addEdge(std::vector<edge> graph[], int start, int dest, int weight)
 {
@@ -193,41 +201,63 @@ bool isConnected(std::vector<edge> graph[], int exist[], int start, int numVerti
 
 
 //******* BEGIN CYCLIC METHODS *******
-bool cyclicTraverse(int curr, std::vector<edge> graph[], bool visited[], int parent)
+bool cyclicTraverse(std::vector<edge> graph[], std::vector<edge> mst[], int curr, int colors[])
 {
-    //set current index to visited
-    visited[curr] = true;
+    //set color of current vertex to GRAY, meaning it is being processed right now
+    colors[curr] = GRAY;
     
     //traverse through all edges
-	for(auto nextEdge : graph[curr])
-	{
-		//if the neighbor hasn't been visited yet, traverse that edge
-		if(!visited[nextEdge.destination])
-		{
-			if(cyclicTraverse(nextEdge.destination, graph, visited, curr))
-				return true;
-		}
-		//if there is a neighbor that has been traversed and is not the parent of this node, there is a cycle
-		else if(nextEdge.destination != parent)
-			return true;
-		
-		//if all edges are exhausted and no cycle detected, return false for no cycles present
-	}    
+    for(auto next : graph[curr])
+    {
+        //doing this extra for loop check due to the way I have the MST stored (ie edges in the destination slots)
+        //std::cout << "Graph edge: " << curr << " --" << next.weight << "--> " << next.destination << "\n";
+        bool traverse = false;
+        for(auto mstCheck : mst[next.destination])
+        {
+            //std::cout << "MST edge: " << mstCheck.start << " --" << mstCheck.weight << "--> " << mstCheck.destination << "\n";
+            if(next.destination == mstCheck.destination && next.weight == mstCheck.weight)
+            {
+                traverse = true;
+                break;
+            }
+        }
+        
+        if(traverse)
+        {
+            int vertex = next.destination;
+            std::cout << "Traversing from " << curr << " to " << vertex << "\n";
+            //check if GRAY, if so there is a cycle
+            if(colors[vertex] == GRAY)
+            {
+                std::cout << "Cycle found on edge " << curr << " to " << vertex << "\n";
+                return true;
+            }
+
+            //if vertex not processed, but a back edge exists, return true
+            if(colors[vertex] == WHITE && cyclicTraverse(graph, mst, vertex, colors))
+            {
+                return true;
+            }
+        }
+    }
+    
+    //mark vertex as processed
+    colors[curr] = BLACK;
     
     return false;
 }
 
-bool isCyclic(std::vector<edge> mst[], int numVertices)
+bool isCyclic(std::vector<edge> graph[], std::vector<edge> mst[], int numVertices)
 {
     //initialize all vertex color's to white (unprocessed)
-    bool *visited = new bool[numVertices];
+    int *colors = new int[numVertices];
     for(int i = 0; i < numVertices; i++)
-        visited[i] = false;
+        colors[i] = WHITE;
     
     //DFS all vertices
-    for(int i = 1; i < numVertices; i++)
-        if(!visited[i])
-            if(cyclicTraverse(i, mst, visited, -1))
+    for(int i = 0; i < numVertices; i++)
+        if(colors[i] == WHITE)
+            if(cyclicTraverse(graph, mst, i, colors) == true)
                 return true;
     
     return false;
@@ -245,30 +275,110 @@ int find(int parents[], int vert)
     return find(parents, parents[vert]);
 }
 
-void joinComps(int parents[], int rank[], int startOne, int startTwo)
+void joinComps(int parents[], int rank[], int startOne, int startTwo, std::vector<groupRep> groups[])
 {
     int rootOne = find(parents, startOne);
     int rootTwo = find(parents, startTwo);
 
     //attach smaller ranked tree under root of higher ranked one
     if(rank[rootOne] < rank[rootTwo])
+	{
         parents[rootOne] = rootTwo;
-    else if(rank[rootOne] > rank[rootTwo])
-        parents[rootTwo] = rootOne;
-    //if ranks are the same, just make root one the main root and increment its rank
+		groups[rootTwo].push_back({rootOne, 1});
+		groups[rootOne].push_back({-1, -1});
+		/*
+		for(int i : groups[rootOne])
+			groups[rootTwo].push_back(i);
+		groups[rootOne].clear();
+		groups[rootOne].push_back(-1);
+		*/
+	}
+	else if(rank[rootOne] > rank[rootTwo])
+    {
+		parents[rootTwo] = rootOne;
+		groups[rootOne].push_back({rootTwo, 1});
+		groups[rootTwo].push_back({-1, -1});
+		/*
+		for(int i : groups[rootTwo])
+			groups[rootOne].push_back(i);
+		groups[rootTwo].clear();
+		groups[rootTwo].push_back(-1);
+		*/
+	}
+	//if ranks are the same, just make root one the main root and increment its rank
     else
     {
         parents[rootTwo] = rootOne;
+		groups[rootOne].push_back({rootTwo, 1});
+		groups[rootTwo].push_back({-1, -1});
+		/*
+		for(int i : groups[rootTwo])
+			groups[rootOne].push_back(i);
+		groups[rootTwo].clear();
+		groups[rootTwo].push_back(-1);
         rank[rootOne]++;
-    }
+		*/
+	}
+}
+
+void addVertexEdges(std::vector<edge> graph[], groupRep vertex, std::vector<groupRep> groups[], int parents[], std::vector<edge> edges[], int index)
+{
+	for(auto curr : graph[vertex.root])
+	{
+		int rootOne = vertex.root; //rootOne = edge "start"
+		int rootTwo = curr.destination; //rootTwo = edge "end"
+		
+		//find components/sets for every edge
+		int setOne = groups[index].front().root;//find(parents, rootOne);
+		//set two - no recursion for this one, stack may already be very large
+		int vertTwo = rootTwo;
+		while(parents[vertTwo] != vertTwo)
+		{
+			vertTwo = parents[vertTwo];                         
+		}
+		int setTwo = vertTwo;
+		//int setTwo = find(parents, rootTwo);
+		
+		//if the two vertices found are part of the same component, ignore
+		if(setOne != setTwo)
+		{
+			if(edges[setOne].empty() || (edges[setOne].front().weight > curr.weight))
+			{
+					edges[setOne].clear();
+					edges[setOne].push_back({rootOne, rootTwo, curr.weight});
+			}
+		}
+	}
+	return;
+}
+
+void recurseAndAddEdges(std::vector<edge> graph[], groupRep vertex, std::vector<groupRep> groups[], int parents[], std::vector<edge> edges[], int index)
+{
+	//printf("Recursin node %d...\n", vertex.root);
+	for(auto curr : groups[vertex.root])
+	{
+		if(curr.root == -1)
+		{
+			//std::cout << "Done recursin...\n";
+			continue;
+		}
+		else if(curr.moreNodes == 0)
+		{
+			//printf("No more groups detected for %d, checking edge prices...\n", curr.root);
+			addVertexEdges(graph, curr, groups, parents, edges, index);
+		}
+		else if(curr.moreNodes == 1)
+		{
+			//printf("More groups detected for %d, recursing through group...\n", curr.root);
+			recurseAndAddEdges(graph, curr, groups, parents, edges, index);
+		}
+	}
+
+	return;
 }
     
-void minSpanningTree(std::vector<edge> graph[], std::vector<edge> result[], int root, int numVertices, int numEdges, bool notConnected[])
+void minSpanningTree(std::vector<edge> graph[], std::vector<edge> result[], int root, int numVertices, int numEdges, bool notConnected[], int cores)
 {
-	//timing vars
-	//double eddgeFindTime = 0, combineTime = 0, initCleartime = 0, removeTreeTime = 0, tempOne = 0, tempTwo = 0;
-	
-	//tempOne = omp_get_wtime();
     //number of trees initially is just the number of vertices
     int numTrees = numVertices-1;
     //remove any vertices not connected
@@ -277,8 +387,6 @@ void minSpanningTree(std::vector<edge> graph[], std::vector<edge> result[], int 
         if(notConnected[i])
             numTrees--;
     }
-	//tempTwo = omp_get_wtime();
-	//removeTreeTime += (tempTwo - tempOne);
     
     //array of vector of edges representing each tree
     std::vector<edge> *trees = new std::vector<edge>[numVertices];
@@ -288,125 +396,194 @@ void minSpanningTree(std::vector<edge> graph[], std::vector<edge> result[], int 
     int *rank = new int[numVertices]();
     //vector to store smallest edge of each tree, reinitialize on every loop
     std::vector<edge> *edges = new std::vector<edge>[numVertices];
-    
+    //array of vectors to store the groups of trees - used for splitting work up
+	std::vector<groupRep> *groups = new std::vector<groupRep>[numVertices];
+	groups[0].push_back({-1, -1});
+		
     //vars to hold vertex numbers
-    int rootOne, rootTwo;
+    //int rootOne, rootTwo;
     
-	//tempOne = omp_get_wtime();
     //initialize parent array
+	#pragma omp parallel for shared( parents, rank, groups, numVertices ) num_threads( cores ) default( none ) schedule( guided )
     for(int i = 1; i < numVertices; i++)
     {
         parents[i] = i;
         rank[i] = 0;
+		groups[i].push_back({i, 0});
     }
-	//tempTwo = omp_get_wtime();
-	//initCleartime += (tempTwo - tempOne);
     
     //std::cout << "Number of trees to begin: " << numTrees << "\n"; 
     
-    //debug var
+    //debug 
     int edgeCount = 0;
-    
+	//std::cout << "About to begin main MST loop...\n";
+	
+	//SOMETIMES SEGFAULTS IN THIS SECTION WITH CORES > 1
+	//also experience anomalies such as "Cheapest edge for tree rooted at 19 is 275934512 ---1207957296-- 21926"
+	
     //while there are more than 1 tree (assuming entire graph is connected to begin), keep going
     while(numTrees > 1)
     {
-		//tempOne = omp_get_wtime();
         //clear all edges
+		#pragma omp parallel for shared( edges, numVertices ) num_threads( cores ) default( none ) schedule( guided )
         for(int i = 1; i < numVertices; i++)
             edges[i].clear();
-		//tempTwo = omp_get_wtime();
-		//initCleartime += (tempTwo - tempOne);
         
-		//tempOne = omp_get_wtime();
+		/*
+		std::cout << "Groups before finding cheapest edges: \n";
+		for(int i = 1; i < numVertices; i++)
+		{
+			std::cout << "Group " << i << "\n";
+			for(int j : groups[i])
+			{
+				std::cout << j << " ";
+			}
+			std::cout << "\n";
+		}
+		*/
 		
+		//std::cout << "Finding cheapest edges...\n";
         //loop through all edges and update the cheapest one for each component
+		//have each thread operate on a "group" at a time - ie a chunk of vertices that will later be joined into the entire tree
+		#pragma omp parallel for shared( numVertices, notConnected, graph, parents, edges, groups ) num_threads( cores ) default( none ) schedule( guided )
         for(int i = 1; i < numVertices; i++)
         {
+			
             //if the current vertex is not connected to the main graph, jump to next iteration
-            if(notConnected[i])
+            if(notConnected[i] || groups[i].back().root == -1)
+			{
+				//debug
+				//printf("Thread %d working on i = %d,  skipping group...\n", omp_get_thread_num(), i);
                 continue;
-            //std::cout << "Looking through edges for vertex: " << i << "\n";
-            for(auto curr : graph[i])
-            {
-                //std::cout << "Current edge " << i << " --" << curr.weight << "-- " << curr.destination << "\n";
-                rootOne = i; //rootOne = edge "start"
-                rootTwo = curr.destination; //rootTwo = edge "end"
-                
-                //find components/sets for every edge
-                int setOne = find(parents, rootOne);
-                int setTwo = find(parents, rootTwo);
-                
-                //if the two vertices found are part of the same component, ignore
-                if(setOne != setTwo)
-                {
-                    if(edges[setOne].empty() || (edges[setOne].front().weight > curr.weight))
-                    {
-                        /*
-                        if(!edges[setOne].empty())
-                        {
-                            std::cout << "S1 Edge " << rootOne << " --" << curr.weight << "-- " << rootTwo << " is less than \n";
-                            std::cout << "        " << edges[setOne].front().start << " --" << edges[setOne].front().weight << "-- " << edges[setOne].front().destination << "\n";
-                        }
-                        */
-                        edges[setOne].clear();
-                        edges[setOne].push_back({rootOne, rootTwo, curr.weight});
-                        //maybe push back for edges[setTwo] as well?
-                        /*
-                        for(auto test : edges[i])
-                        {
-                            std::cout << "S1 Cheapest edge for vertex " << setOne << " is " << setOne << " --" << test.weight << "-- " << test.destination << "\n";
-                        }
-                        */
-                    }
-                    if(edges[setTwo].empty() || (edges[setTwo].front().weight > curr.weight))
-                    {
-                        /*
-                        if(!edges[setTwo].empty())
-                        {
-                            std::cout << "S2 Edge " << rootOne << " --" << curr.weight << "-- " << rootTwo << " is less than \n";
-                            std::cout << "        " << edges[setTwo].front().start << " --" << edges[setTwo].front().weight << "-- " << edges[setTwo].front().destination << "\n";
-                        }
-                        */
-                        edges[setTwo].clear();
-                        edges[setTwo].push_back({rootOne, rootTwo, curr.weight});
-                        //maybe push back for edges[setOne] as well?
-                        /*
-                        for(auto test : edges[i])
-                        {
-                            std::cout << "S2 Cheapest edge for vertex " << setTwo << " is " << setTwo << " --" << test.weight << "-- " << test.destination << "\n";
-                        }
-                        */
-                    }
-                }
             }
+			
+			//std::cout << "Looking through edges for vertex: " << i << "\n";
+			for(groupRep j : groups[i])
+			{
+				if(j.root != -1)
+				{
+					if(j.moreNodes == 0)
+					{
+						//printf("No more groups detected for %d,  checking edge prices...\n", j.root);
+						addVertexEdges(graph, j, groups, parents, edges, i);
+					}
+					else if(j.moreNodes == 1)
+					{
+						//printf("More groups detected for %d, recursing through group...\n", j.root);
+						recurseAndAddEdges(graph, j, groups, parents, edges, i);
+					}
+				}
+				
+				/*
+				for(auto curr : graph[j.root])
+				{
+					
+					//std::cout << "Current edge " << i << " --" << curr.weight << "-- " << curr.destination << "\n";
+					int rootOne = j; //rootOne = edge "start"
+					int rootTwo = curr.destination; //rootTwo = edge "end"
+					
+					//find components/sets for every edge
+					int setOne = groups[i].front().root;//find(parents, rootOne);
+					int setTwo = find(parents, rootTwo);
+					
+					//if the two vertices found are part of the same component, ignore
+					if(setOne != setTwo)
+					{
+						if(edges[setOne].empty() || (edges[setOne].front().weight > curr.weight))
+						{
+							/*
+							if(!edges[setOne].empty())
+							{
+								std::cout << "S1 Edge " << rootOne << " --" << curr.weight << "-- " << rootTwo << " is less than \n";
+								std::cout << "        " << edges[setOne].front().start << " --" << edges[setOne].front().weight << "-- " << edges[setOne].front().destination << "\n";
+							}
+							*/
+							//pragmas with same name ? 
+							//#pragma omp critical( setAdd )
+							//{
+								//edges[setOne].clear();
+								//if(rootOne < rootTwo)
+									//edges[setOne].push_back({rootOne, rootTwo, curr.weight});
+								//else
+									//edges[setOne].push_back({rootTwo, rootOne, curr.weight});
+							//}
+							/*
+							for(auto test : edges[i])
+							{
+								std::cout << "S1 Cheapest edge for vertex " << setOne << " is " << setOne << " --" << test.weight << "-- " << test.destination << "\n";
+							}
+							*/
+						//}
+						/*
+						if(edges[setTwo].empty() || (edges[setTwo].front().weight > curr.weight))
+						{
+							#pragma omp critical( setAdd )
+							{
+								//edges[setTwo].clear();
+								if(rootOne < rootTwo)
+									edges[setTwo].push_back({rootOne, rootTwo, curr.weight});
+								else
+									edges[setTwo].push_back({rootTwo, rootOne, curr.weight});
+							}
+						}
+						*/
+					//}
+				//}
+			}
         }
 		
-		//tempTwo = omp_get_wtime();
 		
-		//eddgeFindTime += (tempTwo - tempOne);
-        
+		//SOMETIMES SEGFAULTS IN THIS SECTION WITH CORES > 1
+		//std::cout << "Grabbing min from each vector...\n";
+		/*
+		std::vector<edge> *minEdges = new std::vector<edge>[numVertices];
+		//now need to grab the minimum edge from each set using minimum_element
+		#pragma omp parallel for shared( numVertices, minEdges, edges ) num_threads( cores ) default( none )
+		for(int i = 1; i < numVertices; i++)
+		{
+			//printf("Thread %d working on i = %d\n", omp_get_thread_num(), i);
+			auto min = std::min_element(edges[i].begin(), edges[i].end(), [] (edge first, edge second) {return first.weight < second.weight;});
+			minEdges[i].push_back({(*min).start, (*min).destination, (*min).weight});
+        }
+		*/
         /*
         //debug - print out cheapest edges
         for(int i = 1; i < numVertices; i++)
         {
-            for(auto curr : edges[i])
+            for(auto curr : minEdges[i])
             {
                 std::cout << "Cheapest edge for tree rooted at " << i << " is " << curr.start << " --" << curr.weight << "-- " << curr.destination << "\n";
             }
         }
         */
-		
-		//tempOne = omp_get_wtime();
         
+		/*
+		//DEBUG -- SMALL SMALL SMALL GRAPHS ONLY
+		std::cout << "Groups before combining: \n";
+		for(int i = 1; i < numVertices; i++)
+		{
+			std::cout << "Group " << i << "\n";
+			for(int j : groups[i])
+			{
+				std::cout << j << " ";
+			}
+			std::cout << "\n";
+		}
+		*/
+		
         //add the cheapest edges to the MST
         for(int i = 1; i < numVertices; i++)
         {
             //check if there is a cheapest edge for the current set
+            //if(!minEdges[i].empty())
             if(!edges[i].empty())
-            {
-                rootOne = edges[i].front().start; //rootOne = edge "start"
-                rootTwo = edges[i].front().destination; //rootTwo = edge "end"
-                
+			{
+                //rootOne = minEdges[i].front().start; //rootOne = edge "start"
+                //rootTwo = minEdges[i].front().destination; //rootTwo = edge "end"
+				int rootOne = edges[i].front().start; //rootOne = edge "start"
+                int rootTwo = edges[i].front().destination; //rootTwo = edge "end"
+				
+                int counts = 0;
                 //find components/sets for every edge
                 int setOne = find(parents, rootOne);
                 int setTwo = find(parents, rootTwo);
@@ -415,30 +592,39 @@ void minSpanningTree(std::vector<edge> graph[], std::vector<edge> result[], int 
                 if(setOne != setTwo)
                 {
                     //add edge to mst
-                    addEdge(result, rootOne, rootTwo, edges[i].front().weight);
+                    //addEdge(result, rootOne, rootTwo, minEdges[i].front().weight);
+					addEdge(result, rootOne, rootTwo, edges[i].front().weight);
                     edgeCount++; //debug
-                    
+					
+					//std::cout << "Adding edge: " << rootOne << " -- " << edges[i].front().weight << " -- " << rootTwo << "\n";
+					
                     //combine the trees
-                    joinComps(parents, rank, rootOne, rootTwo);
+                    joinComps(parents, rank, rootOne, rootTwo, groups);
                     numTrees--;
                 }
             }
         }
-		
-		//tempTwo = omp_get_wtime();
-		
-		//combineTime += (tempTwo - tempOne);
+		/*
+		//DEBUG -- SMALL SMALL SMALL GRAPHS ONLY
+		std::cout << "Groups after combining: \n";
+		for(int i = 1; i < numVertices; i++)
+		{
+			std::cout << "Group " << i << "\n";
+			for(groupRep j : groups[i])
+			{
+				std::cout << "{ " << j.root << " " << j.moreNodes << " } ";
+			}
+			std::cout << "\n";
+		}
+		*/
         //std::cout << "EdgeCount = " << edgeCount << "\n";
         //std::cout << "numTrees: " << numTrees << "\n";
         //numTrees--;
     }
     
-    //std::cout << "Number of edges in the MST is: " << edgeCount << "\n";
-	//std::cout << "Time to initialize and clear arrays/vectors: " << initCleartime << "\n";
-	//std::cout << "Time to find cheapest edges: " << eddgeFindTime << "\n";
-	//std::cout << "Time to add cheapest edges: " << combineTime << "\n";
-	//std::cout << "Time to initially remove disconnected trees: " << removeTreeTime << "\n";
+    std::cout << "Number of edges in the MST is: " << edgeCount << "\n";
     
+	delete[] groups;
     delete[] parents;
     delete[] rank;
     delete[] trees;
@@ -471,13 +657,21 @@ int main(int argc, char** argv) {
     int delim = std::atoi(argv[2]);
     if(delim == 0)
         delimeter = ',';
-    else if(delim == 1)
+    else
         delimeter = ' ';
-	else
-		delimeter = '	';
     //grab file name from cmd line
-    std::string fname = argv[1]; 
-	std::cout << "Graph file in use: " << fname << "\n";
+    std::string fname = argv[1];
+    
+    //set # cores as arg 3
+    std::cout << "Max # threads = " << omp_get_max_threads() << "\n";
+    int cores = std::atoi(argv[3]);
+	if(cores > omp_get_max_threads())
+	{
+		std::cout << "Number of requested cores: " << cores << " is larger than maximum: " << omp_get_max_threads() << "\n";
+		std::cout << "Will be running on " << omp_get_max_threads() << " cores instead.\n";
+		cores = omp_get_max_threads();
+	}
+    std::cout << "Running on " << cores << " cores\n"; 
     
     //pointer to input file containing graph data
     std::fstream file;
@@ -486,16 +680,7 @@ int main(int argc, char** argv) {
     file.open(fname, std::ios::in);    
 
     //need the number of nodes in the graph, which is the first line of the csv
-    //work around for the two graphs named like "201512020130.v128568730_e270234840.tsv"
-	if(fname.compare("graphs/201512020130.v128568730_e270234840.tsv") == 0)
-	{
-		numVertices = 128568730 + 1;
-	}
-	else if(fname.compare("graphs/201512020330.v226196185_e480047894.tsv") == 0)
-	{
-		numVertices = 226196185 + 1;
-	}
-    else if(file.is_open())
+    if(file.is_open())
     {
         //need to read until no % lead the line
         std::getline(file, row);
@@ -558,66 +743,40 @@ int main(int argc, char** argv) {
     //std::cout << "Printing initial graph:\n";
     //print the initial graph
     //printGraph(graph, numVertices, checkVertex);
-	
-    double allTime = 0.0, avgTime = 0.0;
-	
-	//going to run MST 10 times and average the timing of the results
-	for(int i = 0; i < 10; i++)
+    
+    //start measuring time
+	printf("Starting timer and running MST algorithm...\n");
+	start = omp_get_wtime();	
+    
+	//find mst of the graph
+    minSpanningTree(graph, result, root, numVertices, edges, notConnected, cores);
+    
+    //get end time after ops finish
+	end = omp_get_wtime();
+	//calculate total time
+	total = end - start;
+    //print execution time
+	printf("Total execution time: %.8lf seconds\n", total);
+    
+    //std::cout << "\nPrinting minimum spanning tree:\n";
+    //print mst
+    //printGraph(result, numVertices, checkVertex);
+	//print total weight
+	/*
+	double weightTotal = 0;
+	for(int i = 1; i < numVertices; i++)
 	{
-		
-		printf("Starting timer and running MST algorithm...\n");
-		//start measuring time
-		start = omp_get_wtime();	
-		
-		//find mst of the graph
-		minSpanningTree(graph, result, root, numVertices, edges, notConnected);
-		
-		//get end time after ops finish
-		end = omp_get_wtime();
-		//calculate total time
-		total = end - start;
-		//print execution time
-		printf("Total execution time: %.8lf seconds\n", total);
-		//add this runtime to the total
-		allTime = total + allTime;
-		
-		//std::cout << "\nPrinting minimum spanning tree:\n";
-		//print mst
-		//printGraph(result, numVertices, checkVertex);
-		//print total weight
-		
-		//still need to ensure correct result is produced every run
-		double weightTotal = 0;
-		double edgesTotal = 0;
-		for(int i = 1; i < numVertices; i++)
-		{
+		if(!notConnected[i])
+		{	
 			for(auto curr : result[i])
 			{
+				std::cout << "Curr.weight = " << curr.weight << "\n";
 				weightTotal = (double) weightTotal + curr.weight;
-				edgesTotal++;
 			}
 		}
-		printf("Total edges in MST is: %.0lf\n", edgesTotal/2); 
-		printf("Total weight for MST is: %.0lf\n", weightTotal/2);
-		
-		//check if cycles exist
-		if(isCyclic(result, numVertices))
-			std::cout << "There are cycles within the MST!\n";
-		else
-			std::cout << "There are no cycles within the MST!\n";
-		
-		//clear the tree for next run
-		for(int i = 1; i < numVertices; i++)
-		{
-			result[i].clear();
-		}
-		
 	}
-	
-	avgTime = allTime / 10;
-	//print average runtime
-	std::cout << "Average time across MST runs is: " << avgTime << "\n";	
-    
+	std::cout << "Total weight for MST is: " << weightTotal/2 << "\n";
+    */
     
     delete[] checkVertex;
     delete[] graph;

@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <chrono>
 #include <fstream>
@@ -9,7 +8,7 @@
 #include <algorithm>
 #include <sstream> // std::stringstream
 #include <list>
-
+#include<queue>
 #include <omp.h>
 
 enum Color {WHITE, GRAY, BLACK};
@@ -260,12 +259,65 @@ bool isCyclic(std::vector<edge> graph[], std::vector<edge> mst[], int numVertice
 //******* END CYCLIC METHODS *******
 
 //*************** END GRAPH CHECK METHODS (CONNECTED & CYCLIC) ***************
-
-
-
+void bfs(std::vector<edge> graph[], bool visited[], int numVertices, int root, int cores)
+{   
+	/*
+	#pragma omp parallel for shared( visited, numVertices ) num_threads( cores ) default( none ) schedule( dynamic, 5000 )
+    for(int i = 0; i < numVertices; i++)
+    {
+        visited[i] = false;
+    }
+	*/
+	//evenly spread where each core starts in graph, may not necessarily correlate to distance from node 1 but just doing for even-ness and simplicity
+	int spread = numVertices / cores;
+	
+    
+	#pragma omp parallel shared( graph, visited, cores, root, spread ) num_threads( cores ) default( none )
+	{
+		//grab thread number for current thread running code
+		int thisThread = omp_get_thread_num();
+		
+		std::queue<int> localQueue;
+		if(thisThread == 0)
+		{
+			//printf("Core %d starting at %d\n", thisThread, root);
+			localQueue.push(root);
+			visited[root] = true;
+		}
+		else
+		{
+			//printf("Core %d starting at %d\n", thisThread, thisThread * spread);
+			localQueue.push(thisThread * spread);
+			visited[thisThread * spread] = true;
+		}		
+		
+		//go until this queue is empty
+		while(!localQueue.empty())
+		{
+			// dequeue front node 
+			int v = localQueue.front();
+			localQueue.pop();
+		
+			
+			for (auto edge: graph[v])
+			{
+				int adjvertex = edge.destination;
+				if (!visited[adjvertex])
+				{
+					visited[adjvertex] = true;
+					localQueue.push(adjvertex);
+				}
+			}
+		}
+    }
+	
+}
+    
 //*************** BEGIN MAIN FUNCTION ***************
 int main(int argc, char** argv) {
-
+    double start = 0.0;
+	double end = 0.0;
+	double total = 0.0;
     //variables coming from graph
     int numVertices = 0, root = -1, edges = -1;
     int info[2]; //[0] = root, [1] = # edges
@@ -279,14 +331,23 @@ int main(int argc, char** argv) {
     int delim = std::atoi(argv[2]);
     if(delim == 0)
         delimeter = ',';
-    else
+    else if(delim == 1)
         delimeter = ' ';
+	else
+		delimeter = '	';
     //grab file name from cmd line
     std::string fname = argv[1];
+	std::cout << "Graph file in use: " << fname << "\n";
     
     //set # cores as arg 3
     std::cout << "Max # threads = " << omp_get_max_threads() << "\n";
     int cores = std::atoi(argv[3]);
+    if(cores > omp_get_max_threads())
+	{
+		std::cout << "Number of requested cores: " << cores << " is larger than maximum: " << omp_get_max_threads() << "\n";
+		std::cout << "Will be running on " << omp_get_max_threads() << " cores instead.\n";
+		cores = omp_get_max_threads();
+	}
     std::cout << "Running on " << cores << " cores\n"; 
     
     //pointer to input file containing graph data
@@ -296,7 +357,16 @@ int main(int argc, char** argv) {
     file.open(fname, std::ios::in);    
 
     //need the number of nodes in the graph, which is the first line of the csv
-    if(file.is_open())
+	//work around for the two graphs named like "201512020130.v128568730_e270234840.tsv"
+    if(fname.compare("../graphs/201512020130.v128568730_e270234840.tsv") == 0)
+	{
+		numVertices = 128568730 + 1;
+	}
+	else if(fname.compare("../graphs/201512020330.v226196185_e480047894.tsv") == 0)
+	{
+		numVertices = 226196185 + 1;
+	}
+    else if(file.is_open())
     {
         //need to read until no % lead the line
         std::getline(file, row);
@@ -337,7 +407,7 @@ int main(int argc, char** argv) {
     std::cout << "The root node for this graph is: " << root << "\n";
     std::cout << "The number of edges in this graph is: " << edges << "\n";
     
-    /*
+    
     //check if graph is connected
     bool *notConnected = new bool[numVertices](); //number of vertices not connected to the graph - not reached by traversal from root
     bool connected = isConnected(graph, checkVertex, root, numVertices, notConnected);
@@ -354,25 +424,75 @@ int main(int argc, char** argv) {
     }
     else
         std::cout << "The initial graph is fully connected!\n\n";
-    */
+    
 	
     //std::cout << "Printing initial graph:\n";
     //print the initial graph
     //printGraph(graph, numVertices, checkVertex);
     
-    // Start measuring time
-    auto begin = std::chrono::high_resolution_clock::now();
-    
-	//BFS or MST or whatever
-    
-    // Stop measuring time and calculate the elapsed time
-    auto end = std::chrono::high_resolution_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin);
-    printf("Time measured: %.9f seconds.\n", elapsed.count() * 1e-9);
-    
-    //std::cout << "\nPrinting minimum spanning tree:\n";
-    //print mst
-    //printGraph(result, numVertices, checkVertex);
+	bool *visited = new bool[numVertices]();
+
+	//additional time vars, should prob move up top with others
+	double allTime = 0.0, avgTime = 0.0;
+	//going to run MST 10 times and average the timing of the results
+	for(int i = 0; i < 10; i++)
+	{
+		//reset this on every run
+		for(int i = 0; i < numVertices; i++)
+			visited[i] = false;
+		printf("Begin to run and collect time for baseline....\n");
+		// BFS or MST or whatever
+		start = omp_get_wtime();
+		bfs(graph, visited, numVertices, root, cores);
+		//  Stop measuring time and calculate the elapsed time
+		//auto end = std::chrono::high_resolution_clock::now();
+		//auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin);
+		//printf("Time measured: %.9f seconds.\n", elapsed.count() * 1e-9);
+		end = omp_get_wtime();
+		//calculate total time
+		total = end - start;
+		//print execution time
+		printf("Total execution time: %.8lf seconds\n", total);
+		//add this runtime to the total
+		allTime = total + allTime;
+		
+		//check for each run
+		printf("Checking if all vertices have been visited...\n");
+		bool allVisited = true;
+		double numVisited = 0;
+		for(int i = 1; i < numVertices; i++)
+		{
+			if(!notConnected[i] && !visited[i])
+			{
+				allVisited = false;
+				std::cout << "Vertex " << i << " not visited!\n";
+				//break;
+			}
+			else if(!notConnected[i] && visited[i])
+				numVisited++;
+		}
+		if(allVisited)
+		{
+			if(connected)
+			{
+				printf("All %d vertices have been visited!\n\n", numVertices);
+			}
+			else
+			{
+				printf("Graph is not fully connected, %.0lf vertices reachable from the root have been visited!\n\n", numVisited);
+			}
+		}
+		else
+		{
+			printf("Incomplete BFS traversal!\n\n");
+			printf("Number of vertices visited: %.0lf\n\n", numVisited);
+		}
+	
+	}
+	
+	avgTime = allTime / 10;
+	//print average runtime
+	std::cout << "Average time across MST runs is: " << avgTime << "\n";
     
     
     delete[] checkVertex;

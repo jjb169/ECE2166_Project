@@ -8,8 +8,10 @@
 #include <algorithm>
 #include <sstream> // std::stringstream
 #include <list>
-
+#include<queue>
 #include <omp.h>
+
+enum Color {WHITE, GRAY, BLACK};
 
 //*************** BEGIN GRAPH REPRESENTATION FUNCTIONS ***************
 struct edge
@@ -193,41 +195,63 @@ bool isConnected(std::vector<edge> graph[], int exist[], int start, int numVerti
 
 
 //******* BEGIN CYCLIC METHODS *******
-bool cyclicTraverse(int curr, std::vector<edge> graph[], bool visited[], int parent)
+bool cyclicTraverse(std::vector<edge> graph[], std::vector<edge> mst[], int curr, int colors[])
 {
-    //set current index to visited
-    visited[curr] = true;
+    //set color of current vertex to GRAY, meaning it is being processed right now
+    colors[curr] = GRAY;
     
     //traverse through all edges
-	for(auto nextEdge : graph[curr])
-	{
-		//if the neighbor hasn't been visited yet, traverse that edge
-		if(!visited[nextEdge.destination])
-		{
-			if(cyclicTraverse(nextEdge.destination, graph, visited, curr))
-				return true;
-		}
-		//if there is a neighbor that has been traversed and is not the parent of this node, there is a cycle
-		else if(nextEdge.destination != parent)
-			return true;
-		
-		//if all edges are exhausted and no cycle detected, return false for no cycles present
-	}    
+    for(auto next : graph[curr])
+    {
+        //doing this extra for loop check due to the way I have the MST stored (ie edges in the destination slots)
+        //std::cout << "Graph edge: " << curr << " --" << next.weight << "--> " << next.destination << "\n";
+        bool traverse = false;
+        for(auto mstCheck : mst[next.destination])
+        {
+            //std::cout << "MST edge: " << mstCheck.start << " --" << mstCheck.weight << "--> " << mstCheck.destination << "\n";
+            if(next.destination == mstCheck.destination && next.weight == mstCheck.weight)
+            {
+                traverse = true;
+                break;
+            }
+        }
+        
+        if(traverse)
+        {
+            int vertex = next.destination;
+            std::cout << "Traversing from " << curr << " to " << vertex << "\n";
+            //check if GRAY, if so there is a cycle
+            if(colors[vertex] == GRAY)
+            {
+                std::cout << "Cycle found on edge " << curr << " to " << vertex << "\n";
+                return true;
+            }
+
+            //if vertex not processed, but a back edge exists, return true
+            if(colors[vertex] == WHITE && cyclicTraverse(graph, mst, vertex, colors))
+            {
+                return true;
+            }
+        }
+    }
+    
+    //mark vertex as processed
+    colors[curr] = BLACK;
     
     return false;
 }
 
-bool isCyclic(std::vector<edge> mst[], int numVertices)
+bool isCyclic(std::vector<edge> graph[], std::vector<edge> mst[], int numVertices)
 {
     //initialize all vertex color's to white (unprocessed)
-    bool *visited = new bool[numVertices];
+    int *colors = new int[numVertices];
     for(int i = 0; i < numVertices; i++)
-        visited[i] = false;
+        colors[i] = WHITE;
     
     //DFS all vertices
-    for(int i = 1; i < numVertices; i++)
-        if(!visited[i])
-            if(cyclicTraverse(i, mst, visited, -1))
+    for(int i = 0; i < numVertices; i++)
+        if(colors[i] == WHITE)
+            if(cyclicTraverse(graph, mst, i, colors) == true)
                 return true;
     
     return false;
@@ -235,229 +259,34 @@ bool isCyclic(std::vector<edge> mst[], int numVertices)
 //******* END CYCLIC METHODS *******
 
 //*************** END GRAPH CHECK METHODS (CONNECTED & CYCLIC) ***************
-
-
-//*************** BEGIN BORUVKAS ALGORITHM METHODS ***************
-int find(int parents[], int vert)
-{
-    if(parents[vert] == vert)
-        return vert;
-    return find(parents, parents[vert]);
-}
-
-void joinComps(int parents[], int rank[], int startOne, int startTwo)
-{
-    int rootOne = find(parents, startOne);
-    int rootTwo = find(parents, startTwo);
-
-    //attach smaller ranked tree under root of higher ranked one
-    if(rank[rootOne] < rank[rootTwo])
-        parents[rootOne] = rootTwo;
-    else if(rank[rootOne] > rank[rootTwo])
-        parents[rootTwo] = rootOne;
-    //if ranks are the same, just make root one the main root and increment its rank
-    else
+void bfs(std::vector<edge> graph[], bool visited[], int numVertices, int root)
+{   
+    std::list<int> q;
+    visited[root] = true;
+    q.push_back(root);
+    while (!q.empty())
     {
-        parents[rootTwo] = rootOne;
-        rank[rootOne]++;
-    }
-}
-    
-void minSpanningTree(std::vector<edge> graph[], std::vector<edge> result[], int root, int numVertices, int numEdges, bool notConnected[])
-{
-	//timing vars
-	//double eddgeFindTime = 0, combineTime = 0, initCleartime = 0, removeTreeTime = 0, tempOne = 0, tempTwo = 0;
-	
-	//tempOne = omp_get_wtime();
-    //number of trees initially is just the number of vertices
-    int numTrees = numVertices-1;
-    //remove any vertices not connected
-    for(int i = 1; i < numVertices; i++)
-    {
-        if(notConnected[i])
-            numTrees--;
-    }
-	//tempTwo = omp_get_wtime();
-	//removeTreeTime += (tempTwo - tempOne);
-    
-    //array of vector of edges representing each tree
-    std::vector<edge> *trees = new std::vector<edge>[numVertices];
-    //array of each parent vertex (index holds parent value)
-    int *parents = new int[numVertices]();
-    //rank array to hold bigger values for bigger roots
-    int *rank = new int[numVertices]();
-    //vector to store smallest edge of each tree, reinitialize on every loop
-    std::vector<edge> *edges = new std::vector<edge>[numVertices];
-    
-    //vars to hold vertex numbers
-    int rootOne, rootTwo;
-    
-	//tempOne = omp_get_wtime();
-    //initialize parent array
-    for(int i = 1; i < numVertices; i++)
-    {
-        parents[i] = i;
-        rank[i] = 0;
-    }
-	//tempTwo = omp_get_wtime();
-	//initCleartime += (tempTwo - tempOne);
-    
-    //std::cout << "Number of trees to begin: " << numTrees << "\n"; 
-    
-    //debug var
-    int edgeCount = 0;
-    
-    //while there are more than 1 tree (assuming entire graph is connected to begin), keep going
-    while(numTrees > 1)
-    {
-		//tempOne = omp_get_wtime();
-        //clear all edges
-        for(int i = 1; i < numVertices; i++)
-            edges[i].clear();
-		//tempTwo = omp_get_wtime();
-		//initCleartime += (tempTwo - tempOne);
-        
-		//tempOne = omp_get_wtime();
-		
-        //loop through all edges and update the cheapest one for each component
-        for(int i = 1; i < numVertices; i++)
+        // dequeue front node and print it
+        int v = q.front();
+        q.pop_front();
+
+        for (auto edge: graph[v])
         {
-            //if the current vertex is not connected to the main graph, jump to next iteration
-            if(notConnected[i])
-                continue;
-            //std::cout << "Looking through edges for vertex: " << i << "\n";
-            for(auto curr : graph[i])
+            int adjvertex = edge.destination;
+            if (!visited[adjvertex])
             {
-                //std::cout << "Current edge " << i << " --" << curr.weight << "-- " << curr.destination << "\n";
-                rootOne = i; //rootOne = edge "start"
-                rootTwo = curr.destination; //rootTwo = edge "end"
-                
-                //find components/sets for every edge
-                int setOne = find(parents, rootOne);
-                int setTwo = find(parents, rootTwo);
-                
-                //if the two vertices found are part of the same component, ignore
-                if(setOne != setTwo)
-                {
-                    if(edges[setOne].empty() || (edges[setOne].front().weight > curr.weight))
-                    {
-                        /*
-                        if(!edges[setOne].empty())
-                        {
-                            std::cout << "S1 Edge " << rootOne << " --" << curr.weight << "-- " << rootTwo << " is less than \n";
-                            std::cout << "        " << edges[setOne].front().start << " --" << edges[setOne].front().weight << "-- " << edges[setOne].front().destination << "\n";
-                        }
-                        */
-                        edges[setOne].clear();
-                        edges[setOne].push_back({rootOne, rootTwo, curr.weight});
-                        //maybe push back for edges[setTwo] as well?
-                        /*
-                        for(auto test : edges[i])
-                        {
-                            std::cout << "S1 Cheapest edge for vertex " << setOne << " is " << setOne << " --" << test.weight << "-- " << test.destination << "\n";
-                        }
-                        */
-                    }
-                    if(edges[setTwo].empty() || (edges[setTwo].front().weight > curr.weight))
-                    {
-                        /*
-                        if(!edges[setTwo].empty())
-                        {
-                            std::cout << "S2 Edge " << rootOne << " --" << curr.weight << "-- " << rootTwo << " is less than \n";
-                            std::cout << "        " << edges[setTwo].front().start << " --" << edges[setTwo].front().weight << "-- " << edges[setTwo].front().destination << "\n";
-                        }
-                        */
-                        edges[setTwo].clear();
-                        edges[setTwo].push_back({rootOne, rootTwo, curr.weight});
-                        //maybe push back for edges[setOne] as well?
-                        /*
-                        for(auto test : edges[i])
-                        {
-                            std::cout << "S2 Cheapest edge for vertex " << setTwo << " is " << setTwo << " --" << test.weight << "-- " << test.destination << "\n";
-                        }
-                        */
-                    }
-                }
+                visited[adjvertex] = true;
+                q.push_back(adjvertex);
             }
         }
-		
-		//tempTwo = omp_get_wtime();
-		
-		//eddgeFindTime += (tempTwo - tempOne);
-        
-        /*
-        //debug - print out cheapest edges
-        for(int i = 1; i < numVertices; i++)
-        {
-            for(auto curr : edges[i])
-            {
-                std::cout << "Cheapest edge for tree rooted at " << i << " is " << curr.start << " --" << curr.weight << "-- " << curr.destination << "\n";
-            }
-        }
-        */
-		
-		//tempOne = omp_get_wtime();
-        
-        //add the cheapest edges to the MST
-        for(int i = 1; i < numVertices; i++)
-        {
-            //check if there is a cheapest edge for the current set
-            if(!edges[i].empty())
-            {
-                rootOne = edges[i].front().start; //rootOne = edge "start"
-                rootTwo = edges[i].front().destination; //rootTwo = edge "end"
-                
-                //find components/sets for every edge
-                int setOne = find(parents, rootOne);
-                int setTwo = find(parents, rootTwo);
-                
-                //make sure both setOne and setTwo are not within same component
-                if(setOne != setTwo)
-                {
-                    //add edge to mst
-                    addEdge(result, rootOne, rootTwo, edges[i].front().weight);
-                    edgeCount++; //debug
-                    
-                    //combine the trees
-                    joinComps(parents, rank, rootOne, rootTwo);
-                    numTrees--;
-                }
-            }
-        }
-		
-		//tempTwo = omp_get_wtime();
-		
-		//combineTime += (tempTwo - tempOne);
-        //std::cout << "EdgeCount = " << edgeCount << "\n";
-        //std::cout << "numTrees: " << numTrees << "\n";
-        //numTrees--;
-    }
-    
-    //std::cout << "Number of edges in the MST is: " << edgeCount << "\n";
-	//std::cout << "Time to initialize and clear arrays/vectors: " << initCleartime << "\n";
-	//std::cout << "Time to find cheapest edges: " << eddgeFindTime << "\n";
-	//std::cout << "Time to add cheapest edges: " << combineTime << "\n";
-	//std::cout << "Time to initially remove disconnected trees: " << removeTreeTime << "\n";
-    
-    delete[] parents;
-    delete[] rank;
-    delete[] trees;
-    delete[] edges;
-    
-    return;
+    }  
 }
-//*************** END BORUVKAS ALGORITHM METHODS ***************
-
-
-
+    
 //*************** BEGIN MAIN FUNCTION ***************
 int main(int argc, char** argv) {
-
-	//time variables
-	double start = 0.0;
+    double start = 0.0;
 	double end = 0.0;
 	double total = 0.0;
-
     //variables coming from graph
     int numVertices = 0, root = -1, edges = -1;
     int info[2]; //[0] = root, [1] = # edges
@@ -476,7 +305,7 @@ int main(int argc, char** argv) {
 	else
 		delimeter = '	';
     //grab file name from cmd line
-    std::string fname = argv[1]; 
+    std::string fname = argv[1];
 	std::cout << "Graph file in use: " << fname << "\n";
     
     //pointer to input file containing graph data
@@ -486,12 +315,12 @@ int main(int argc, char** argv) {
     file.open(fname, std::ios::in);    
 
     //need the number of nodes in the graph, which is the first line of the csv
-    //work around for the two graphs named like "201512020130.v128568730_e270234840.tsv"
-	if(fname.compare("graphs/201512020130.v128568730_e270234840.tsv") == 0)
+	//work around for the two graphs named like "201512020130.v128568730_e270234840.tsv"
+    if(fname.compare("../graphs/201512020130.v128568730_e270234840.tsv") == 0)
 	{
 		numVertices = 128568730 + 1;
 	}
-	else if(fname.compare("graphs/201512020330.v226196185_e480047894.tsv") == 0)
+	else if(fname.compare("../graphs/201512020330.v226196185_e480047894.tsv") == 0)
 	{
 		numVertices = 226196185 + 1;
 	}
@@ -558,21 +387,27 @@ int main(int argc, char** argv) {
     //std::cout << "Printing initial graph:\n";
     //print the initial graph
     //printGraph(graph, numVertices, checkVertex);
+    
+    // Start measuring time
+    //auto begin = std::chrono::high_resolution_clock::now();
+	bool *visited = new bool[numVertices]();
 	
-    double allTime = 0.0, avgTime = 0.0;
-	
+	//additional time vars, should prob move up top with others
+	double allTime = 0.0, avgTime = 0.0;
 	//going to run MST 10 times and average the timing of the results
 	for(int i = 0; i < 10; i++)
 	{
-		
-		printf("Starting timer and running MST algorithm...\n");
-		//start measuring time
-		start = omp_get_wtime();	
-		
-		//find mst of the graph
-		minSpanningTree(graph, result, root, numVertices, edges, notConnected);
-		
-		//get end time after ops finish
+		//reset this on every run
+		for(int i = 0; i < numVertices; i++)
+			visited[i] = false;
+		printf("Begin to run and collect time for baseline....\n");
+		// BFS or MST or whatever
+		start = omp_get_wtime();
+		bfs(graph, visited, numVertices, root);
+		//  Stop measuring time and calculate the elapsed time
+		//auto end = std::chrono::high_resolution_clock::now();
+		//auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin);
+		//printf("Time measured: %.9f seconds.\n", elapsed.count() * 1e-9);
 		end = omp_get_wtime();
 		//calculate total time
 		total = end - start;
@@ -581,43 +416,44 @@ int main(int argc, char** argv) {
 		//add this runtime to the total
 		allTime = total + allTime;
 		
-		//std::cout << "\nPrinting minimum spanning tree:\n";
-		//print mst
-		//printGraph(result, numVertices, checkVertex);
-		//print total weight
-		
-		//still need to ensure correct result is produced every run
-		double weightTotal = 0;
-		double edgesTotal = 0;
+		//check for each run
+		printf("Checking if all vertices have been visited...\n");
+		bool allVisited = true;
+		double numVisited = 0;
 		for(int i = 1; i < numVertices; i++)
 		{
-			for(auto curr : result[i])
+			if(!notConnected[i] && !visited[i])
 			{
-				weightTotal = (double) weightTotal + curr.weight;
-				edgesTotal++;
+				allVisited = false;
+				std::cout << "Vertex " << i << " not visited!\n";
+				//break;
+			}
+			else if(!notConnected[i] && visited[i])
+				numVisited++;
+		}
+		if(allVisited)
+		{
+			if(connected)
+			{
+				printf("All %d vertices have been visited!\n\n", numVertices);
+			}
+			else
+			{
+				printf("Graph is not fully connected, %.0lf vertices reachable from the root have been visited!\n\n", numVisited);
 			}
 		}
-		printf("Total edges in MST is: %.0lf\n", edgesTotal/2); 
-		printf("Total weight for MST is: %.0lf\n", weightTotal/2);
-		
-		//check if cycles exist
-		if(isCyclic(result, numVertices))
-			std::cout << "There are cycles within the MST!\n";
 		else
-			std::cout << "There are no cycles within the MST!\n";
-		
-		//clear the tree for next run
-		for(int i = 1; i < numVertices; i++)
 		{
-			result[i].clear();
+			printf("Incomplete BFS traversal!\n\n");
+			printf("Number of vertices visited: %.0lf\n\n", numVisited);
 		}
-		
+	
 	}
 	
 	avgTime = allTime / 10;
 	//print average runtime
-	std::cout << "Average time across MST runs is: " << avgTime << "\n";	
-    
+	std::cout << "Average time across MST runs is: " << avgTime << "\n";
+	
     
     delete[] checkVertex;
     delete[] graph;

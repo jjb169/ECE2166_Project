@@ -1,0 +1,90 @@
+Running on:  Intel(R) Xeon(R) Gold 6126 CPU @ 2.60GHz
+Graph file in use: graphs/mawi_201512020030.mtx
+Max # threads = 16
+Running on 2 cores
+# vertices in csv = 68863316
+The max value of a vertex is: 68863315
+The root node for this graph is: 31413874
+The number of edges in this graph is: 71707480
+The initial graph is not connected!
+Number of vertices not connected is: 3951131
+
+Starting timer and running MST algorithm...
+Total execution time: 14.07209598 seconds
+Total edges in MST is: 64912183
+Total weight for MST is: 223835711
+There are no cycles within the MST!
+
+Starting timer and running MST algorithm...
+Total execution time: 10.18839761 seconds
+Total edges in MST is: 64912183
+Total weight for MST is: 223835711
+There are no cycles within the MST!
+
+Starting timer and running MST algorithm...
+Total execution time: 10.85609362 seconds
+Total edges in MST is: 64912183
+Total weight for MST is: 223835711
+There are no cycles within the MST!
+
+Starting timer and running MST algorithm...
+Total execution time: 10.43785825 seconds
+Total edges in MST is: 64912183
+Total weight for MST is: 223835711
+There are no cycles within the MST!
+
+Starting timer and running MST algorithm...
+Total execution time: 11.37059223 seconds
+Total edges in MST is: 64912183
+Total weight for MST is: 223835711
+There are no cycles within the MST!
+
+Starting timer and running MST algorithm...
+Total execution time: 10.54061936 seconds
+Total edges in MST is: 64912183
+Total weight for MST is: 223835711
+There are no cycles within the MST!
+
+Starting timer and running MST algorithm...
+Total execution time: 10.00742773 seconds
+Total edges in MST is: 64912183
+Total weight for MST is: 223835711
+There are no cycles within the MST!
+
+Starting timer and running MST algorithm...
+Total execution time: 10.29336576 seconds
+Total edges in MST is: 64912183
+Total weight for MST is: 223835711
+There are no cycles within the MST!
+
+Starting timer and running MST algorithm...
+Total execution time: 10.96473419 seconds
+Total edges in MST is: 64912183
+Total weight for MST is: 223835711
+There are no cycles within the MST!
+
+Starting timer and running MST algorithm...
+Total execution time: 9.89289942 seconds
+Total edges in MST is: 64912183
+Total weight for MST is: 223835711
+There are no cycles within the MST!
+
+Average time across MST runs is: 10.8624
+============================================================================
+                               JOB STATISTICS                              
+============================================================================
+      SubmitTime: 2022-04-22T18:39:19
+         EndTime: 2022-04-22T20:39:22
+         RunTime: 00:02:48
+           JobId: 5762815
+            TRES: cpu=16,mem=64288M,node=1,billing=12
+       Partition: smp
+        NodeList: smp-n72
+         Command: /ihome/ece2195_2022s/jjb169/ece2166/graphProject/graphMST.slurm
+          StdOut: /ihome/ece2195_2022s/jjb169/ece2166/graphProject/slurm-5762815.out
+More information:
+    - `sacct -M smp -j 5762815 -S 2022-04-22T18:39:19 -E 2022-04-22T20:39:22`
+   Print control:
+    - List of all possible fields: `sacct --helpformat`
+    - Add `--format=<field1,field2,etc>` with fields of interest
+============================================================================

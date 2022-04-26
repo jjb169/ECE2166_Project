@@ -1,0 +1,80 @@
+Running on:  Intel(R) Xeon(R) Gold 6126 CPU @ 2.60GHz
+Graph file in use: ../graphs/mawi_201512020030.mtx
+Max # threads = 16
+Running on 16 cores
+# vertices in csv = 68863316
+The max value of a vertex is: 68863315
+The root node for this graph is: 31413874
+The number of edges in this graph is: 71707480
+The initial graph is not connected!
+Number of vertices not connected is: 3951131
+
+Begin to run and collect time for baseline....
+Total execution time: 0.74281240 seconds
+Checking if all vertices have been visited...
+Graph is not fully connected, 64912184 vertices reachable from the root have been visited!
+
+Begin to run and collect time for baseline....
+Total execution time: 0.70284987 seconds
+Checking if all vertices have been visited...
+Graph is not fully connected, 64912184 vertices reachable from the root have been visited!
+
+Begin to run and collect time for baseline....
+Total execution time: 0.70242083 seconds
+Checking if all vertices have been visited...
+Graph is not fully connected, 64912184 vertices reachable from the root have been visited!
+
+Begin to run and collect time for baseline....
+Total execution time: 0.70263622 seconds
+Checking if all vertices have been visited...
+Graph is not fully connected, 64912184 vertices reachable from the root have been visited!
+
+Begin to run and collect time for baseline....
+Total execution time: 0.76163708 seconds
+Checking if all vertices have been visited...
+Graph is not fully connected, 64912184 vertices reachable from the root have been visited!
+
+Begin to run and collect time for baseline....
+Total execution time: 0.86123212 seconds
+Checking if all vertices have been visited...
+Graph is not fully connected, 64912184 vertices reachable from the root have been visited!
+
+Begin to run and collect time for baseline....
+Total execution time: 0.80747331 seconds
+Checking if all vertices have been visited...
+Graph is not fully connected, 64912184 vertices reachable from the root have been visited!
+
+Begin to run and collect time for baseline....
+Total execution time: 0.76479951 seconds
+Checking if all vertices have been visited...
+Graph is not fully connected, 64912184 vertices reachable from the root have been visited!
+
+Begin to run and collect time for baseline....
+Total execution time: 0.82135474 seconds
+Checking if all vertices have been visited...
+Graph is not fully connected, 64912184 vertices reachable from the root have been visited!
+
+Begin to run and collect time for baseline....
+Total execution time: 0.81224085 seconds
+Checking if all vertices have been visited...
+Graph is not fully connected, 64912184 vertices reachable from the root have been visited!
+
+Average time across MST runs is: 0.767946
+============================================================================
+                               JOB STATISTICS                              
+============================================================================
+      SubmitTime: 2022-04-25T16:29:11
+         EndTime: 2022-04-25T18:29:15
+         RunTime: 00:00:55
+           JobId: 5799558
+            TRES: cpu=16,mem=64288M,node=1,billing=12
+       Partition: smp
+        NodeList: smp-n93
+         Command: /ihome/ece2195_2022s/jjb169/ece2166/graphProject/BFS_stuff/graphBFS.slurm
+          StdOut: /ihome/ece2195_2022s/jjb169/ece2166/graphProject/BFS_stuff/slurm-5799558.out
+More information:
+    - `sacct -M smp -j 5799558 -S 2022-04-25T16:29:11 -E 2022-04-25T18:29:15`
+   Print control:
+    - List of all possible fields: `sacct --helpformat`
+    - Add `--format=<field1,field2,etc>` with fields of interest
+============================================================================

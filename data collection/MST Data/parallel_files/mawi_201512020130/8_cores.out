@@ -1,0 +1,69 @@
+Running on:  Intel(R) Xeon(R) Gold 6126 CPU @ 2.60GHz
+Max # threads = 16
+Running on 8 cores
+# vertices in csv = 128568731
+The max value of a vertex is: 128568730
+The root node for this graph is: 58782752
+The number of edges in this graph is: 135117420
+The initial graph is not connected!
+Number of vertices not connected is: 6974219
+
+Starting timer and running MST algorithm...
+Total execution time: 23.67440757 seconds
+Total edges in MST is: 2.43189e+08
+Total weight for MST is: 4.13757e+08
+Starting timer and running MST algorithm...
+Total execution time: 11.43308699 seconds
+Total edges in MST is: 2.43189e+08
+Total weight for MST is: 4.13757e+08
+Starting timer and running MST algorithm...
+Total execution time: 13.64457451 seconds
+Total edges in MST is: 2.43189e+08
+Total weight for MST is: 4.13757e+08
+Starting timer and running MST algorithm...
+Total execution time: 11.47382372 seconds
+Total edges in MST is: 2.43189e+08
+Total weight for MST is: 4.13757e+08
+Starting timer and running MST algorithm...
+Total execution time: 10.70193155 seconds
+Total edges in MST is: 2.43189e+08
+Total weight for MST is: 4.13757e+08
+Starting timer and running MST algorithm...
+Total execution time: 14.26211932 seconds
+Total edges in MST is: 2.43189e+08
+Total weight for MST is: 4.13757e+08
+Starting timer and running MST algorithm...
+Total execution time: 11.30996241 seconds
+Total edges in MST is: 2.43189e+08
+Total weight for MST is: 4.13757e+08
+Starting timer and running MST algorithm...
+Total execution time: 11.30681933 seconds
+Total edges in MST is: 2.43189e+08
+Total weight for MST is: 4.13757e+08
+Starting timer and running MST algorithm...
+Total execution time: 12.51880955 seconds
+Total edges in MST is: 2.43189e+08
+Total weight for MST is: 4.13757e+08
+Starting timer and running MST algorithm...
+Total execution time: 13.64514109 seconds
+Total edges in MST is: 2.43189e+08
+Total weight for MST is: 4.13757e+08
+Average time across MST runs is: 13.3971
+============================================================================
+                               JOB STATISTICS                              
+============================================================================
+      SubmitTime: 2022-04-20T20:01:52
+         EndTime: 2022-04-20T20:31:52
+         RunTime: 00:04:01
+           JobId: 5753120
+            TRES: cpu=16,mem=64288M,node=1,billing=12
+       Partition: smp
+        NodeList: smp-n64
+         Command: /ihome/ece2195_2022s/jjb169/ece2166/graphProject/graphMST.slurm
+          StdOut: /ihome/ece2195_2022s/jjb169/ece2166/graphProject/slurm-5753120.out
+More information:
+    - `sacct -M smp -j 5753120 -S 2022-04-20T20:01:52 -E 2022-04-20T20:31:52`
+   Print control:
+    - List of all possible fields: `sacct --helpformat`
+    - Add `--format=<field1,field2,etc>` with fields of interest
+============================================================================

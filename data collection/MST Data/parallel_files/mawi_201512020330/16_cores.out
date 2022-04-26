@@ -1,0 +1,70 @@
+Running on:  Intel(R) Xeon(R) Gold 6126 CPU @ 2.60GHz
+Graph file in use: graphs/mawi_201512020330.mtx
+Max # threads = 16
+Running on 16 cores
+# vertices in csv = 226196186
+The max value of a vertex is: 226196185
+The root node for this graph is: 104492306
+The number of edges in this graph is: 240023949
+The initial graph is not connected!
+Number of vertices not connected is: 12513592
+
+Starting timer and running MST algorithm...
+Total execution time: 38.57015139 seconds
+Total edges in MST is: 4.27365e+08
+Total weight for MST is: 7.01115e+08
+Starting timer and running MST algorithm...
+Total execution time: 17.49787372 seconds
+Total edges in MST is: 4.27365e+08
+Total weight for MST is: 7.01115e+08
+Starting timer and running MST algorithm...
+Total execution time: 18.07011953 seconds
+Total edges in MST is: 4.27365e+08
+Total weight for MST is: 7.01115e+08
+Starting timer and running MST algorithm...
+Total execution time: 16.92571602 seconds
+Total edges in MST is: 4.27365e+08
+Total weight for MST is: 7.01115e+08
+Starting timer and running MST algorithm...
+Total execution time: 19.78523920 seconds
+Total edges in MST is: 4.27365e+08
+Total weight for MST is: 7.01115e+08
+Starting timer and running MST algorithm...
+Total execution time: 17.12905830 seconds
+Total edges in MST is: 4.27365e+08
+Total weight for MST is: 7.01115e+08
+Starting timer and running MST algorithm...
+Total execution time: 16.97280242 seconds
+Total edges in MST is: 4.27365e+08
+Total weight for MST is: 7.01115e+08
+Starting timer and running MST algorithm...
+Total execution time: 18.92991990 seconds
+Total edges in MST is: 4.27365e+08
+Total weight for MST is: 7.01115e+08
+Starting timer and running MST algorithm...
+Total execution time: 16.99341545 seconds
+Total edges in MST is: 4.27365e+08
+Total weight for MST is: 7.01115e+08
+Starting timer and running MST algorithm...
+Total execution time: 17.03918999 seconds
+Total edges in MST is: 4.27365e+08
+Total weight for MST is: 7.01115e+08
+Average time across MST runs is: 19.7913
+============================================================================
+                               JOB STATISTICS                              
+============================================================================
+      SubmitTime: 2022-04-20T20:32:15
+         EndTime: 2022-04-20T21:02:16
+         RunTime: 00:06:19
+           JobId: 5753157
+            TRES: cpu=16,mem=64288M,node=1,billing=12
+       Partition: smp
+        NodeList: smp-n115
+         Command: /ihome/ece2195_2022s/jjb169/ece2166/graphProject/graphMST.slurm
+          StdOut: /ihome/ece2195_2022s/jjb169/ece2166/graphProject/slurm-5753157.out
+More information:
+    - `sacct -M smp -j 5753157 -S 2022-04-20T20:32:15 -E 2022-04-20T21:02:16`
+   Print control:
+    - List of all possible fields: `sacct --helpformat`
+    - Add `--format=<field1,field2,etc>` with fields of interest
+============================================================================
