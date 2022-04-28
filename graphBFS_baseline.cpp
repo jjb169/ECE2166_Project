@@ -1,3 +1,4 @@
+
 #include <stdio.h>
 #include <chrono>
 #include <fstream>
@@ -11,8 +12,13 @@
 #include<queue>
 #include <omp.h>
 
-enum Color {WHITE, GRAY, BLACK};
 
+using namespace std;
+bool *visited = NULL;
+int v;
+queue<int> q;
+int numOut = 0;
+enum Color {WHITE, GRAY, BLACK};
 //*************** BEGIN GRAPH REPRESENTATION FUNCTIONS ***************
 struct edge
 {
@@ -193,34 +199,122 @@ bool isConnected(std::vector<edge> graph[], int exist[], int start, int numVerti
 
 //******* END CONNECTED METHODS *******
 
-//*************** END GRAPH CHECK METHODS (CONNECTED & CYCLIC) ***************
-void bfs(std::vector<edge> graph[], bool visited[], int numVertices, int root)
-{   
-	//create a queue to hold vertices in order seen for traversal
-    std::list<int> q;
-	//begin by visiting root and adding it to queue
-    visited[root] = true;
-    q.push_back(root);
-	//while the queue is not empty, there are still vertices that need traversing
-    while (!q.empty())
-    {
-        // dequeue front node and print it
-        int v = q.front();
-        q.pop_front();
 
-		//for a given vertex, loop through its edges
-        for (auto edge: graph[v])
+//******* BEGIN CYCLIC METHODS *******
+bool cyclicTraverse(std::vector<edge> graph[], std::vector<edge> mst[], int curr, int colors[])
+{
+    //set color of current vertex to GRAY, meaning it is being processed right now
+    colors[curr] = GRAY;
+    
+    //traverse through all edges
+    for(auto next : graph[curr])
+    {
+        //doing this extra for loop check due to the way I have the MST stored (ie edges in the destination slots)
+        //std::cout << "Graph edge: " << curr << " --" << next.weight << "--> " << next.destination << "\n";
+        bool traverse = false;
+        for(auto mstCheck : mst[next.destination])
         {
-			//grab the destination for an edge to check if it has been visited
-            int adjvertex = edge.destination;
-            if (!visited[adjvertex])
+            //std::cout << "MST edge: " << mstCheck.start << " --" << mstCheck.weight << "--> " << mstCheck.destination << "\n";
+            if(next.destination == mstCheck.destination && next.weight == mstCheck.weight)
             {
-				//if not visited yet, mark it as now visited and add it to the queue to traverse
-                visited[adjvertex] = true;
-                q.push_back(adjvertex);
+                traverse = true;
+                break;
             }
         }
-    }  
+        
+        if(traverse)
+        {
+            int vertex = next.destination;
+            std::cout << "Traversing from " << curr << " to " << vertex << "\n";
+            //check if GRAY, if so there is a cycle
+            if(colors[vertex] == GRAY)
+            {
+                std::cout << "Cycle found on edge " << curr << " to " << vertex << "\n";
+                return true;
+            }
+
+            //if vertex not processed, but a back edge exists, return true
+            if(colors[vertex] == WHITE && cyclicTraverse(graph, mst, vertex, colors))
+            {
+                return true;
+            }
+        }
+    }
+    
+    //mark vertex as processed
+    colors[curr] = BLACK;
+    
+    return false;
+}
+
+bool isCyclic(std::vector<edge> graph[], std::vector<edge> mst[], int numVertices)
+{
+    //initialize all vertex color's to white (unprocessed)
+    int *colors = new int[numVertices];
+    for(int i = 0; i < numVertices; i++)
+        colors[i] = WHITE;
+    
+    //DFS all vertices
+    for(int i = 0; i < numVertices; i++)
+        if(colors[i] == WHITE)
+            if(cyclicTraverse(graph, mst, i, colors) == true)
+                return true;
+    
+    return false;
+}
+//******* END CYCLIC METHODS *******
+void p_init(int numVertices) {
+    visited = new bool[numVertices];
+    for(int i = 0; i < numVertices; i++)
+    {
+        visited[i] = false;
+    }
+}
+//*************** END GRAPH CHECK METHODS (CONNECTED & CYCLIC) ***************
+void bfs(std::vector<edge> graph[],int numVertices, int root)
+{   
+    //double initCleartime = 0, tempOne = 0, tempTwo = 0;
+    
+    //omp_set_num_threads (cores);
+    visited[root] = true;
+    q.push(root);
+	// Setup omp lock
+	//omp_lock_t lck;
+	//omp_init_lock (&lck);
+    printf("begin to check.....");
+    while (!q.empty())
+        {
+                int v = q.front();
+                q.pop();
+                for (auto edge: graph[v])
+                {
+                    int adjvertex = edge.destination;
+                    if (!visited[adjvertex])
+                    {
+                        visited[adjvertex] = true;
+                        q.push(adjvertex);
+                        //printf("adjvertex %d has been visited",adjvertex);
+
+                    }
+                }
+        }
+}
+
+void check_error(int numVertices, bool *visited, int numOut)
+{
+    int t = 0;
+    int k =0;
+    for (int i =1;i<(numVertices);i++)
+    {
+        k= k+1;
+        if (visited[i])
+        {
+            //printf("the node is fasle..%d",i);
+            t = t + 1;
+        }
+    }
+    printf("the max error of vertices has been visted is.. %d\n",numVertices-1-numOut-t);
+    //printf("visited has elements %d\n",k);
 }
     
 //*************** BEGIN MAIN FUNCTION ***************
@@ -247,7 +341,18 @@ int main(int argc, char** argv) {
 		delimeter = '	';
     //grab file name from cmd line
     std::string fname = argv[1];
-	std::cout << "Graph file in use: " << fname << "\n";
+	//std::cout << "file read now: " << fname << "\n";
+    
+    //set # cores as arg 3
+    // std::cout << "Max # threads = " << omp_get_max_threads() << "\n";
+    // int cores = std::atoi(argv[3]);
+    // if(cores > omp_get_max_threads())
+	// {
+	// 	std::cout << "Number of requested cores: " << cores << " is larger than maximum: " << omp_get_max_threads() << "\n";
+	// 	std::cout << "Will be running on " << omp_get_max_threads() << " cores instead.\n";
+	// 	cores = omp_get_max_threads();
+	// }
+    // std::cout << "Running on " << cores << " cores\n"; 
     
     //pointer to input file containing graph data
     std::fstream file;
@@ -257,16 +362,17 @@ int main(int argc, char** argv) {
 
     //need the number of nodes in the graph, which is the first line of the csv
 	//work around for the two graphs named like "201512020130.v128568730_e270234840.tsv"
-    if(fname.compare("../graphs/201512020130.v128568730_e270234840.tsv") == 0)
+    if(fname.compare("/graphs/840.tsv") == 0)
 	{
 		numVertices = 128568730 + 1;
 	}
-	else if(fname.compare("../graphs/201512020330.v226196185_e480047894.tsv") == 0)
+	else if(fname.compare("/graphs/894.tsv") == 0)
 	{
 		numVertices = 226196185 + 1;
 	}
     else if(file.is_open())
     {
+        std::cout << "Running file name: " << fname << "\n";
         //need to read until no % lead the line
         std::getline(file, row);
         //std::cout << "Row: " << row << "\n";
@@ -294,6 +400,8 @@ int main(int argc, char** argv) {
     int *checkVertex = new int[numVertices]();
     //main pointer to adjacency list (will need partitioning later)
     std::vector<edge> *graph = new std::vector<edge>[numVertices];
+    //graph containing the resulting MST
+    std::vector<edge> *result = new std::vector<edge>[numVertices];
     //debug statement
     std::cout << "# vertices in csv = " << numVertices << "\n";
     
@@ -311,7 +419,7 @@ int main(int argc, char** argv) {
     if(!connected)
     {
         std::cout << "The initial graph is not connected!\n";
-        int numOut = 0;
+        
         for(int i = 1; i < numVertices; i++)
         {
             if(notConnected[i])
@@ -329,75 +437,22 @@ int main(int argc, char** argv) {
     
     // Start measuring time
     //auto begin = std::chrono::high_resolution_clock::now();
-	bool *visited = new bool[numVertices]();
-	
-	//additional time vars, should prob move up top with others
-	double allTime = 0.0, avgTime = 0.0;
-	//going to run BFS 10 times and average the timing of the results
-	for(int i = 0; i < 10; i++)
-	{
-		//reset this on every run
-		for(int i = 0; i < numVertices; i++)
-			visited[i] = false;
-		printf("Begin to run and collect time for baseline....\n");
-		// Begin timer and start BFS function
-		start = omp_get_wtime();
-		bfs(graph, visited, numVertices, root);
-		//  Stop measuring time and calculate the elapsed time
-		end = omp_get_wtime();
-		//calculate total time
-		total = end - start;
-		//print execution time
-		printf("Total execution time: %.8lf seconds\n", total);
-		//add this runtime to the total
-		allTime = total + allTime;
-		
-		//check for each run
-		printf("Checking if all vertices have been visited...\n");
-		bool allVisited = true;
-		double numVisited = 0;
-		//loop through all vertices and see if they are visited
-		for(int i = 1; i < numVertices; i++)
-		{
-			//if a vertex is not connected within original graph, ignore
-			//if a vertex is connected and has not been visited, change bool var to false
-			if(!notConnected[i] && !visited[i])
-			{
-				allVisited = false;
-				std::cout << "Vertex " << i << " not visited!\n";
-				//break;
-			}
-			else if(!notConnected[i] && visited[i])
-				numVisited++; //count each visited vertex
-		}
-		//print if all were visited or how many vertices were visited if the original graph was not fully connected
-		if(allVisited)
-		{
-			if(connected)
-			{
-				printf("All %d vertices have been visited!\n\n", numVertices);
-			}
-			else
-			{
-				printf("Graph is not fully connected, %.0lf vertices reachable from the root have been visited!\n\n", numVisited);
-			}
-		}
-		else
-		{
-			printf("Incomplete BFS traversal!\n\n");
-			printf("Number of vertices visited: %.0lf\n\n", numVisited);
-		}
-	
-	}
-	
-	//calculate the average time
-	avgTime = allTime / 10;
-	//print average runtime
-	std::cout << "Average time across MST runs is: " << avgTime << "\n";
-	
+    p_init(numVertices);
+    printf("Begin to run and collect time for baseline....\n");
+	// BFS or MST or whatever
+    start = omp_get_wtime();
+    bfs(graph,numVertices,root);
     
+    end = omp_get_wtime();
+	//calculate total time
+	total = end - start;
+    //print execution time
+	printf("Total execution time: %.8lf seconds\n", total);
+    check_error(numVertices, visited, numOut);
+    free(visited);
     delete[] checkVertex;
     delete[] graph;
+    delete[] result;
     
     return 0;
 }
