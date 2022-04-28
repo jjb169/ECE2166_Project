@@ -11,13 +11,10 @@
 #include <list>
 #include<queue>
 #include <omp.h>
-
 using namespace std;
 bool *visited = NULL;
-int v;
-queue<int> q;
+int numOut = 0;
 enum Color {WHITE, GRAY, BLACK};
-int m =0;
 //*************** BEGIN GRAPH REPRESENTATION FUNCTIONS ***************
 struct edge
 {
@@ -262,62 +259,66 @@ bool isCyclic(std::vector<edge> graph[], std::vector<edge> mst[], int numVertice
     return false;
 }
 //******* END CYCLIC METHODS *******
-void p_init(int numVertices) {
+//init a array for checking status 
+void p_init(int numVertices,int cores) {
     visited = new bool[numVertices];
-    for(int i = 0; i < numVertices; i++)
+    #pragma omp parallel for shared(numVertices, visited) num_threads( cores ) default( none ) schedule( dynamic)
+    for(int i=0; i < numVertices; i++)
     {
         visited[i] = false;
     }
 }
 //*************** END GRAPH CHECK METHODS (CONNECTED & CYCLIC) ***************
-void bfs(std::vector<edge> graph[],int numVertices, int root,int cores)
+void bfs(std::vector<edge> graph[],bool *visited,int numVertices, int root,int cores)
 {   
-    //double initCleartime = 0, tempOne = 0, tempTwo = 0;
-
-    omp_set_num_threads(cores);
-	// Setup omp lock
-	omp_lock_t lck;
-	omp_init_lock (&lck);
-    printf("begin to check.....");
-    q.push(root);
-    while (!q.empty())
+    int partition_size = numVertices/cores;
+    #pragma omp parallel shared( graph, visited, cores, root, partition_size) num_threads( cores ) default( none )
     {
-        #pragma omp parallel 
-		{
-			#pragma omp single
-			{
-                v = q.front();
-                q.pop();
-                //printf("visited\n", visited);
-                //printf("current node----",v);
-                //std::cout << "current node" << v << endl;
-            }
-        //std::cout << "graph length" << graph[v].size() << endl;;
-            #pragma omp barrier
-
-            #pragma omp parallel for shared (lck) schedule (dynamic)
-            for (int i = 0; i < graph[v].size(); i++)
-            {
-                //std::cout << "get edge";  
-                omp_set_lock (&lck);
-                edge e = graph[v][i];
-                int adjvertex = e.destination;
-                
-                if (!visited[adjvertex])
-                {
-                    q.push(adjvertex);
-                    visited[adjvertex] = true;
-                    m = m+1;
-                }
-                omp_unset_lock(&lck);
-            }
+        queue<int> q;
+        int curr_thread = omp_get_thread_num();
+        if (curr_thread != 0)
+        {
+            q.push(curr_thread*partition_size);
+            visited[curr_thread*partition_size] = true;
         }
-        //std::cout << "graph length++++++" << sizeof(graph[v]) / sizeof(edge);
-        //std::cout << "m----------" <<m;  
-    } 
-    std::cout << "m----------" <<m;  
-    omp_destroy_lock (&lck); 
-    free(visited);
+        else
+        {
+            q.push(root);
+            visited[root] = true;
+        }
+        while (!q.empty())
+        {
+                int v = q.front();
+                q.pop();
+                for (auto edge: graph[v])
+                {
+                    int adjvertex = edge.destination;
+                    if (!visited[adjvertex])
+                    {
+                        visited[adjvertex] = true;
+                        q.push(adjvertex);
+                        //printf("adjvertex %d has been visited",adjvertex);
+
+                    }
+                }
+        }
+    }
+}
+void check_error(int numVertices, bool *visited, int numOut)
+{
+    int t = 0;
+    int k =0;
+    for (int i =1;i<(numVertices);i++)
+    {
+        k= k+1;
+        if (visited[i])
+        {
+            //printf("the node is fasle..%d",i);
+            t = t + 1;
+        }
+    }
+    printf("the max error of vertices has been visted is.. %d\n",numVertices-1-numOut-t);
+    //printf("visited has elements %d\n",k);
 }
     
 //*************** BEGIN MAIN FUNCTION ***************
@@ -338,10 +339,13 @@ int main(int argc, char** argv) {
     int delim = std::atoi(argv[2]);
     if(delim == 0)
         delimeter = ',';
-    else
+    else if(delim == 1)
         delimeter = ' ';
+	else
+		delimeter = '	';
     //grab file name from cmd line
     std::string fname = argv[1];
+	std::cout << "file read now: " << fname << "\n";
     
     //set # cores as arg 3
     std::cout << "Max # threads = " << omp_get_max_threads() << "\n";
@@ -352,7 +356,7 @@ int main(int argc, char** argv) {
 		std::cout << "Will be running on " << omp_get_max_threads() << " cores instead.\n";
 		cores = omp_get_max_threads();
 	}
-    std::cout << "R  unning on " << cores << " cores\n"; 
+    std::cout << "Running on " << cores << " cores\n"; 
     
     //pointer to input file containing graph data
     std::fstream file;
@@ -361,8 +365,18 @@ int main(int argc, char** argv) {
     file.open(fname, std::ios::in);    
 
     //need the number of nodes in the graph, which is the first line of the csv
-    if(file.is_open())
+	//work around for the two graphs named like "201512020130.v128568730_e270234840.tsv"
+    if(fname.compare("graphs/840.tsv") == 0)
+	{
+		numVertices = 128568730 + 1;
+	}
+	else if(fname.compare("graphs/894.tsv") == 0)
+	{
+		numVertices = 226196185 + 1;
+	}
+    else if(file.is_open())
     {
+        std::cout << "Running file name: " << fname << "\n";
         //need to read until no % lead the line
         std::getline(file, row);
         //std::cout << "Row: " << row << "\n";
@@ -409,7 +423,6 @@ int main(int argc, char** argv) {
     if(!connected)
     {
         std::cout << "The initial graph is not connected!\n";
-        int numOut = 0;
         for(int i = 1; i < numVertices; i++)
         {
             if(notConnected[i])
@@ -428,10 +441,10 @@ int main(int argc, char** argv) {
     //auto begin = std::chrono::high_resolution_clock::now();
     printf("Begin to run and collect time for openmp....\n");
 	// BFS or MST or whatever
-    p_init(numVertices);
+    p_init(numVertices,cores);
     start = omp_get_wtime();
     //printGraph(graph, numVertices, checkVertex);
-    bfs(graph, numVertices, root,cores);
+    bfs(graph, visited,numVertices,root,cores);
     //  Stop measuring time and calculate the elapsed time
     //auto end = std::chrono::high_resolution_clock::now();
     //auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin);
@@ -441,10 +454,12 @@ int main(int argc, char** argv) {
 	total = end - start;
     //print execution time
 	printf("Total execution time: %.8lf seconds\n", total);
+    // check error
+    check_error(numVertices,visited, numOut);
+    free(visited);
     //std::cout << "\nPrinting minimum spanning tree:\n";
     //print mst
     //printGraph(result, numVertices, checkVertex);
-    
     
     delete[] checkVertex;
     delete[] graph;
