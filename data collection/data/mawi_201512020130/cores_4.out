@@ -1,0 +1,33 @@
+Max # threads = 16
+Running on 4 cores
+Running file name: graphs/mawi_201512020130.mtx
+# vertices in csv = 128568731
+The max value of a vertex is: 128568730
+The root node for this graph is: 58782752
+The number of edges in this graph is: 135117420
+The initial graph is not connected!
+Number of vertices not connected is: 6974219
+
+Begin to run and collect time for openmp....
+Total execution time: 1.78006783 seconds
+the max error of vertices has been visted is.. 0
+
+Running on:  Intel(R) Xeon(R) Gold 6126 CPU @ 2.60GHz
+============================================================================
+                               JOB STATISTICS                              
+============================================================================
+      SubmitTime: 2022-04-26T00:39:08
+         EndTime: 2022-04-26T01:09:10
+         RunTime: 00:02:05
+           JobId: 5801404
+            TRES: cpu=16,mem=64288M,node=1,billing=12
+       Partition: smp
+        NodeList: smp-n165
+         Command: /ihome/ece2166_2022s/fas48/ECE2166_Project/graphBFS_omp.slurm
+          StdOut: /ihome/ece2166_2022s/fas48/ECE2166_Project/slurm-5801404.out
+More information:
+    - `sacct -M smp -j 5801404 -S 2022-04-26T00:39:08 -E 2022-04-26T01:09:10`
+   Print control:
+    - List of all possible fields: `sacct --helpformat`
+    - Add `--format=<field1,field2,etc>` with fields of interest
+============================================================================

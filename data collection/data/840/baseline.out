@@ -1,0 +1,32 @@
+file read now: graphs/894.tsv
+# vertices in csv = 226196186
+The max value of a vertex is: 226196185
+The root node for this graph is: 104492306
+The number of edges in this graph is: 480047894
+The initial graph is not connected!
+Number of vertices not connected is: 12513592
+
+Begin to run and collect time for baseline....
+begin to check.....Total execution time: 4.75892123 seconds
+the max error of vertices has been visted is.. 0
+
+
+Running on:  Intel(R) Xeon(R) Gold 6126 CPU @ 2.60GHz
+============================================================================
+                               JOB STATISTICS                              
+============================================================================
+      SubmitTime: 2022-04-26T02:01:30
+         EndTime: 2022-04-26T01:09:26
+         RunTime: 00:07:24
+           JobId: 5801443
+            TRES: cpu=16,mem=64288M,node=1,billing=12
+       Partition: smp
+        NodeList: smp-n165
+         Command: /ihome/ece2166_2022s/fas48/ECE2166_Project/graphBFS_base.slurm
+          StdOut: /ihome/ece2166_2022s/fas48/ECE2166_Project/slurm-5801443.out
+More information:
+    - `sacct -M smp -j 5801443 -S 2022-04-26T02:01:30 -E 2022-04-26T01:09:26`
+   Print control:
+    - List of all possible fields: `sacct --helpformat`
+    - Add `--format=<field1,field2,etc>` with fields of interest
+============================================================================

@@ -1,0 +1,34 @@
+file read now: graphs/840.tsv
+Max # threads = 16
+Running on 8 cores
+# vertices in csv = 128568731
+The max value of a vertex is: 128568730
+The root node for this graph is: 58782752
+The number of edges in this graph is: 270234840
+The initial graph is not connected!
+Number of vertices not connected is: 6974219
+
+Begin to run and collect time for openmp....
+Total execution time: 3.54291155 seconds
+the max error of vertices has been visted is.. 0
+
+
+Running on:  Intel(R) Xeon(R) Gold 6126 CPU @ 2.60GHz
+============================================================================
+                               JOB STATISTICS                              
+============================================================================
+      SubmitTime: 2022-04-26T03:59:20
+         EndTime: 2022-04-26T04:29:23
+         RunTime: 00:05:54
+           JobId: 5801507
+            TRES: cpu=16,mem=64288M,node=1,billing=12
+       Partition: smp
+        NodeList: smp-n30
+         Command: /ihome/ece2166_2022s/fas48/ECE2166_Project/graphBFS_omp.slurm
+          StdOut: /ihome/ece2166_2022s/fas48/ECE2166_Project/slurm-5801507.out
+More information:
+    - `sacct -M smp -j 5801507 -S 2022-04-26T03:59:20 -E 2022-04-26T04:29:23`
+   Print control:
+    - List of all possible fields: `sacct --helpformat`
+    - Add `--format=<field1,field2,etc>` with fields of interest
+============================================================================
