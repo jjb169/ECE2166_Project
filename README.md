@@ -1,5 +1,5 @@
 # ECE2166_Project
-## Parallel Computer Architecute (ECE2166) course project exploring shared multiprocessors utilized for MST and BFS graph operations 
+## Parallel Computer Architecute (ECE2166) course project exploring shared memory multiprocessors utilized for MST and BFS graph operations 
 #### To compile the code locally: g++ -fopenmp -O3 graphXXX.cpp -o graphXXX.X
 #### To compile on Pitt CRC or Linux based computing resources with .sh file: ./compileXXX-gnu.sh
 ####
